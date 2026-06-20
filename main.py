@@ -178,17 +178,17 @@ def impact_stats():
     df["resolution_minutes"] = (closed - created).dt.total_seconds() / 60.0
     valid = df[(df["resolution_minutes"] > 0) & (df["resolution_minutes"] < 1440)].copy()
 
-    # Proxy severity tier from existing signals (closure flag + High/Low target) rather than
-    # re-running the models per row -- keeps this endpoint fast and the tiering auditable.
-    severity_tier = np.where(
-        valid["requires_road_closure"] == 1, "Critical",
-        np.where(valid["target"] == 1, "High", "Normal"),
-    )
-    factor = pd.Series(severity_tier).map(R.RESPONSE_TIME_FACTOR).to_numpy()
-    valid["estimated_minutes"] = valid["resolution_minutes"].to_numpy() * factor
+    # Data-derived before/after: ClearPath's value is removing the CONGESTION PENALTY — the
+    # gap between an event's ACTUAL resolution time and the calm baseline (~80 min, measured).
+    # estimated = actual - EFFECTIVENESS x max(0, actual - calm_baseline).
+    # Events that already resolved at/below the calm baseline get ~no saving (honest: nothing
+    # to recover); the gains come from the congested tail where the penalty is real and large.
+    res = valid["resolution_minutes"].to_numpy()
+    penalty = np.maximum(0.0, res - R.CALM_BASELINE_MIN)
+    estimated = res - R.CLEARPATH_EFFECTIVENESS * penalty
 
-    avg_baseline = float(valid["resolution_minutes"].mean())
-    avg_with_clearpath = float(valid["estimated_minutes"].mean())
+    avg_baseline = float(res.mean())
+    avg_with_clearpath = float(estimated.mean())
     time_saved = avg_baseline - avg_with_clearpath
     pct_improvement = round(100.0 * time_saved / avg_baseline, 1) if avg_baseline else 0.0
 
@@ -198,6 +198,14 @@ def impact_stats():
         "time_saved_minutes": round(time_saved, 1),
         "pct_improvement": pct_improvement,
         "events_analyzed": int(len(valid)),
+        "calm_baseline_minutes": round(R.CALM_BASELINE_MIN, 1),
+        "effectiveness_assumption": R.CLEARPATH_EFFECTIVENESS,
+        "methodology": (
+            "Before = actual historical resolution times. After = each event's time minus "
+            f"{int(R.CLEARPATH_EFFECTIVENESS*100)}% of its congestion penalty (time above the "
+            f"{R.CALM_BASELINE_MIN:.0f}-min calm baseline measured from data). The penalty is "
+            "empirical; only the recovery fraction is assumed."
+        ),
     }
 
 

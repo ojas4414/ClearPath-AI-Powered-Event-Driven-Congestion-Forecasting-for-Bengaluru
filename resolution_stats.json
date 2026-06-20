@@ -1,5 +1,24 @@
 {
   "avg_baseline_minutes": 97.22,
+  "calm_baseline_minutes": 79.99,
+  "by_congestion_tier": {
+    "calm": {
+      "count": 1193,
+      "mean_minutes": 79.99
+    },
+    "light": {
+      "count": 796,
+      "mean_minutes": 92.27
+    },
+    "moderate": {
+      "count": 324,
+      "mean_minutes": 105.43
+    },
+    "busy": {
+      "count": 151,
+      "mean_minutes": 241.78
+    }
+  },
   "per_corridor": {
     "Airport New South Road": 155.53,
     "Bannerghata Road": 56.91,

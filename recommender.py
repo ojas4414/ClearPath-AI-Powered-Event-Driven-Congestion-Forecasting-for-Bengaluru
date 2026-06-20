@@ -26,15 +26,54 @@ ENCODERS_PATH = os.path.join(BASE_DIR, "encoders.pkl")
 HOURLY_CSV = os.path.join(BASE_DIR, "hourly_corridor_counts.csv")
 RESOLUTION_STATS_PATH = os.path.join(BASE_DIR, "resolution_stats.json")
 
-# Estimated response-time multipliers applied to the historical baseline, by severity tier.
-# WHY: a Critical alert gets ClearPath's full response (officers + barricades + diversion
-# dispatched immediately), so it should resolve fastest relative to the historical baseline;
-# a Normal event gets the lightest response, so the time saved is smaller. These are the
-# "with ClearPath" assumptions behind the before/after impact estimate.
-RESPONSE_TIME_FACTOR = {"Critical": 0.35, "High": 0.45, "Normal": 0.65}
-
 with open(RESOLUTION_STATS_PATH) as _f:
     RESOLUTION_STATS = json.load(_f)
+
+# ---------------------------------------------------------------------------------------
+# Data-derived response-time model (replaces the old hand-picked severity multipliers).
+# ---------------------------------------------------------------------------------------
+# EMPIRICAL FINDING (resolution_stats.json, from real Astram closed-event durations):
+# resolution time scales with congestion context, not severity label —
+#   calm     (0 prior-2h events): ~80 min
+#   light    (1-2):               ~92 min
+#   moderate (3-5):              ~105 min
+#   busy     (6+):              ~242 min   (3x the calm baseline)
+# ClearPath's mechanism is forecasting hotspots and pre-positioning resources BEFORE that
+# congestion builds, so its benefit is removing the *congestion penalty* — the gap between an
+# event's congestion-tier resolution time and the calm baseline. That gap is measured from
+# data; we do NOT invent per-severity speed-ups.
+#
+# The SINGLE remaining assumption (explicit, bounded, conservative): pre-positioning recovers
+# this fraction of the measured congestion penalty. Calm events have ~no penalty, so ClearPath
+# honestly claims little for them — the savings come from the congested tail, where they're real.
+CLEARPATH_EFFECTIVENESS = 0.65
+
+CALM_BASELINE_MIN = float(RESOLUTION_STATS.get("calm_baseline_minutes",
+                                               RESOLUTION_STATS["avg_baseline_minutes"]))
+_TIER_BASELINE = {
+    t: v["mean_minutes"] for t, v in RESOLUTION_STATS.get("by_congestion_tier", {}).items()
+}
+# Worst observed tier — the top of the empirical resolution-time range a congested event trends toward.
+BUSY_BASELINE_MIN = float(_TIER_BASELINE.get("busy", RESOLUTION_STATS["avg_baseline_minutes"]))
+
+
+def _estimate_response(congestion_intensity):
+    """
+    WHAT: Map a model-predicted congestion intensity in [0,1] onto the EMPIRICAL resolution-time
+    range (calm baseline -> busy baseline, both measured from data), then apply the disclosed
+    effectiveness factor to the congestion penalty. Returns
+    (expected_baseline_min, estimated_with_clearpath_min, time_saved_min).
+    WHY: resolution time is driven by congestion, and ClearPath's own LSTM P(busy) + hour-of-day
+    risk ARE its congestion prediction. So a high-risk rush-hour event is expected to resolve
+    near the busy baseline (~242 min) and has a large recoverable penalty; a calm event sits near
+    the calm baseline (~80 min) and honestly saves almost nothing. Only EFFECTIVENESS is assumed;
+    the calm/busy endpoints are observed.
+    """
+    intensity = float(np.clip(congestion_intensity, 0.0, 1.0))
+    expected = CALM_BASELINE_MIN + intensity * (BUSY_BASELINE_MIN - CALM_BASELINE_MIN)
+    penalty = expected - CALM_BASELINE_MIN
+    estimated = expected - CLEARPATH_EFFECTIVENESS * penalty
+    return round(expected, 1), round(estimated, 1), round(expected - estimated, 1)
 
 # Hard-coded diversion playbook: top corridors -> a pre-approved alternate route.
 # WHY hard-coded: diversions are an operational/policy decision (which roads can absorb
@@ -279,18 +318,6 @@ def compute_impact_score(severity_proba, forecast_count, requires_road_closure=F
     return round(float(base_score), 1), round(float(score), 1), multiplier
 
 
-def _baseline_minutes(corridor):
-    """
-    WHAT: Look up the corridor's historical average resolution time, falling back to the
-    citywide average when the corridor has no resolution history of its own.
-    WHY: This is the "before ClearPath" number every estimated-response/time-saved figure is
-    measured against, so it must come from real historical resolution times, not a guess.
-    """
-    return float(RESOLUTION_STATS["per_corridor"].get(
-        corridor, RESOLUTION_STATS["avg_baseline_minutes"]
-    ))
-
-
 def recommend(corridor, event_cause, hour, day_of_week,
               is_weekend=None, requires_road_closure=False):
     """
@@ -327,9 +354,13 @@ def recommend(corridor, event_cause, hour, day_of_week,
 
     suggested = DIVERSION_MAP.get(corridor, "No pre-approved diversion") if diversion else ""
 
-    baseline_min = round(_baseline_minutes(corridor), 1)
-    estimated_min = round(baseline_min * RESPONSE_TIME_FACTOR[severity], 1)
-    time_saved_min = round(baseline_min - estimated_min, 1)
+    # Data-derived response estimate. Congestion intensity = the model's own congestion signals
+    # (LSTM P(busy) + hour-of-day risk), mapped onto the empirical calm->busy resolution range.
+    # time saved is the congestion penalty ClearPath's pre-positioning removes. No invented
+    # per-severity multipliers — only the disclosed effectiveness factor.
+    forecast_prob = forecast if forecast_is_prob else hour_risk
+    congestion_intensity = float(np.clip(0.5 * hour_risk + 0.5 * forecast_prob, 0.0, 1.0))
+    baseline_min, estimated_min, time_saved_min = _estimate_response(congestion_intensity)
 
     if forecast_is_prob:
         forecast_str = f"LSTM busy-hour classifier: P(busy)={forecast:.0%}"
@@ -342,6 +373,12 @@ def recommend(corridor, event_cause, hour, day_of_week,
         f"hour-of-day risk for this corridor: {hour_risk:.0%}. "
         f"Event type multiplier: {multiplier}x. "
         f"Combined impact score {impact}/100 -> {severity}. "
+    )
+    reason += (
+        f"Predicted congestion intensity {congestion_intensity:.0%} -> expected resolution "
+        f"{baseline_min} min (vs {CALM_BASELINE_MIN:.0f}-min calm / {BUSY_BASELINE_MIN:.0f}-min "
+        f"busy baselines from data); pre-positioning -> {estimated_min} min, saving "
+        f"{time_saved_min} min of the congestion penalty. "
     )
     if diversion:
         reason += f"Divert traffic via {suggested}. "

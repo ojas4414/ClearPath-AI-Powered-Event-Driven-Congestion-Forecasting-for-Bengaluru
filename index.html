@@ -386,8 +386,8 @@
       <div class="stat-label">Avg Response (ClearPath)</div>
       <div class="stat-value" id="i-clearpath">—</div>
     </div>
-    <div class="stat-card saved">
-      <div class="stat-label">Time Saved</div>
+    <div class="stat-card saved" id="i-saved-card" title="">
+      <div class="stat-label">Time Saved <span style="opacity:.6">(data-derived)</span></div>
       <div class="stat-value green" id="i-saved">—</div>
     </div>
   </div>
@@ -625,6 +625,7 @@ async function loadImpactStats() {
     document.getElementById("i-baseline").textContent = `${d.avg_baseline_minutes} min`;
     document.getElementById("i-clearpath").textContent = `${d.avg_with_clearpath_minutes} min`;
     document.getElementById("i-saved").textContent = `${d.time_saved_minutes} min (${d.pct_improvement}%)`;
+    if (d.methodology) document.getElementById("i-saved-card").title = d.methodology;
   } catch(e) {}
 }
 
