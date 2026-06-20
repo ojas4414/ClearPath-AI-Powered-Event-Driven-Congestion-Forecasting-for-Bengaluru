@@ -545,8 +545,8 @@
   <button class="toggle-btn" id="toggle-model-details" onclick="toggleModelDetails()">▼ Model Transparency</button>
   <div id="model-details">
     <div class="card">
-      <div class="section-title"><span class="icon">🤖</span> XGBoost Performance</div>
-      <div class="section-subtitle">Validated on a held-out 20% test split (stratified). Real numbers from training on the Astram dataset.</div>
+      <div class="section-title"><span class="icon">🤖</span> XGBoost Performance (leak-free)</div>
+      <div class="section-subtitle">Headline numbers are from the <strong>leak-free</strong> model that predicts priority from time, cause &amp; recent volume — corridor excluded. Held-out 20% stratified test split.</div>
       <div class="metric-grid">
         <div class="metric-box"><div class="m-label">Accuracy</div><div class="m-value" id="m-acc">—</div></div>
         <div class="metric-box"><div class="m-label">Precision</div><div class="m-value" id="m-prec">—</div></div>
@@ -554,16 +554,11 @@
         <div class="metric-box"><div class="m-label">F1</div><div class="m-value" id="m-f1">—</div></div>
       </div>
       <div class="cm-grid" id="cm-grid"></div>
-      <div class="xgb-note">
-        ⚠️ <strong>Transparency note:</strong> 100% accuracy reflects that priority is near-deterministic given
-        corridor identity + recent event volume in this dataset (corridor_encoded importance = 0.784).
-        The LSTM forecaster provides the genuinely predictive, time-varying component of each recommendation.
-        We report this transparently rather than tuning metrics down.
-      </div>
+      <div class="xgb-note" id="xgb-note">—</div>
     </div>
     <div class="card">
       <div class="section-title"><span class="icon">📊</span> Feature Importance (Top 5)</div>
-      <div class="section-subtitle">Which inputs drive the XGBoost severity prediction. Corridor identity dominates — each road has a distinct baseline risk.</div>
+      <div class="section-subtitle">Drivers of the <strong>leak-free</strong> model — recent corridor volume, event cause &amp; time-of-day do the real work once corridor identity is removed.</div>
       <div id="feat-bars"></div>
     </div>
     <div class="lstm-note" id="lstm-note">—</div>
@@ -934,15 +929,38 @@ async function loadModelMetrics() {
     document.getElementById("m-f1").textContent = (d.xgb_f1 * 100).toFixed(1) + "%";
     renderConfusionMatrix(d.confusion_matrix);
     renderFeatureBars(d.feature_importance);
+
+    // XGBoost transparency: lead with the honest number, disclose the corridor-driven 100%.
+    const prodAcc = ((d.xgb_production_accuracy ?? 1) * 100).toFixed(0);
+    const baseAcc = ((d.xgb_corridor_baseline_accuracy ?? 1) * 100).toFixed(0);
+    document.getElementById("xgb-note").innerHTML =
+      `✅ <strong>Honest, leak-free result.</strong> The headline ${(d.xgb_accuracy*100).toFixed(1)}% accuracy /
+       ${(d.xgb_f1*100).toFixed(1)}% F1 come from a model that <strong>excludes corridor</strong>, so it has to
+       genuinely learn from time, cause &amp; recent volume.<br>
+       The production model keeps corridor as a legitimate operational prior and scores
+       <strong>${prodAcc}%</strong>; a corridor-only majority-class baseline already reaches
+       <strong>${baseAcc}%</strong> — proof that priority is near-deterministic given corridor in this dataset,
+       not a leak we're hiding.`;
+
     const auc   = d.lstm_val_auc_top8 ?? 0;
     const pAuc  = d.lstm_persistence_auc_top8 ?? 0;
     const impPP = d.lstm_improvement_auc_pp_top8 ?? 0;
     const aucColor = impPP >= 0 ? "var(--green)" : "var(--orange)";
+    // Per-corridor winners, best delta first — these are the headline pitch numbers.
+    const pc = d.lstm_per_corridor_auc ?? {};
+    const pcRows = Object.entries(pc)
+      .sort((a,b) => b[1].delta_pp - a[1].delta_pp)
+      .map(([name, m]) => {
+        const col = m.delta_pp >= 0 ? "var(--green)" : "var(--orange)";
+        return `${name}: LSTM <strong>${m.lstm_auc.toFixed(3)}</strong> vs ${m.persistence_auc.toFixed(3)}
+                <strong style="color:${col}">(${m.delta_pp >= 0 ? "+" : ""}${m.delta_pp.toFixed(1)} pp)</strong>`;
+      }).join(" · ");
     document.getElementById("lstm-note").innerHTML =
       `<strong>LSTM Busy-Hour Classifier — Held-Out Validation (80/20 chronological split):</strong><br>
        ${d.lstm_corridors_trained} per-corridor binary classifiers · Evaluated on 8 operational corridors<br>
        AUROC: LSTM <strong style="color:${aucColor}">${auc.toFixed(3)}</strong> vs persistence baseline ${pAuc.toFixed(3)}
        → <strong style="color:${aucColor}">${impPP >= 0 ? "+" : ""}${impPP.toFixed(1)} pp</strong><br>
+       <span style="display:block;margin:6px 0;font-size:11px;line-height:1.7">${pcRows}</span>
        <span style="opacity:0.7;font-size:11px">
        Reframed from count regression to binary "will this corridor be busy?" classification — the
        correct formulation for sparse Poisson event data. AUROC (area under ROC curve) is the

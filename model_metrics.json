@@ -1,9 +1,30 @@
 {
-  "xgb_accuracy": 1.0,
-  "xgb_precision": 1.0,
-  "xgb_recall": 1.0,
-  "xgb_f1": 1.0,
+  "xgb_accuracy": 0.8176,
+  "xgb_precision": 0.8219,
+  "xgb_recall": 0.8995,
+  "xgb_f1": 0.8589,
   "feature_importance": {
+    "events_in_corridor_last_2hrs": 0.5594,
+    "event_cause_encoded": 0.0903,
+    "hour": 0.0798,
+    "requires_road_closure": 0.0715,
+    "day_of_week": 0.07,
+    "is_weekend": 0.0663,
+    "month": 0.0627
+  },
+  "confusion_matrix": [
+    [
+      423,
+      194
+    ],
+    [
+      100,
+      895
+    ]
+  ],
+  "xgb_production_accuracy": 1.0,
+  "xgb_production_f1": 1.0,
+  "xgb_production_feature_importance": {
     "corridor_encoded": 0.784,
     "events_in_corridor_last_2hrs": 0.1808,
     "event_cause_encoded": 0.0092,
@@ -13,16 +34,8 @@
     "day_of_week": 0.0047,
     "is_weekend": 0.0027
   },
-  "confusion_matrix": [
-    [
-      617,
-      0
-    ],
-    [
-      0,
-      995
-    ]
-  ],
+  "xgb_corridor_baseline_accuracy": 1.0,
+  "xgb_metric_note": "Headline accuracy/precision/recall/F1 are from the LEAK-FREE model that EXCLUDES corridor (predicting priority from time, cause and recent volume only). The production model that serves predictions keeps corridor as a legitimate operational prior and scores 100%; a corridor-only majority-class baseline already reaches 100%, confirming priority is near-deterministic given corridor in this dataset.",
   "lstm_final_loss": 0.2028,
   "lstm_corridors_trained": 23,
   "lstm_val_auc_all": 0.5109,
@@ -30,5 +43,47 @@
   "lstm_val_auc_top8": 0.5975,
   "lstm_persistence_auc_top8": 0.5469,
   "lstm_improvement_auc_pp_top8": 5.1,
-  "lstm_val_accuracy": 0.9277
+  "lstm_val_accuracy": 0.9277,
+  "lstm_per_corridor_auc": {
+    "Bannerghata Road": {
+      "lstm_auc": 0.659,
+      "persistence_auc": 0.5874,
+      "delta_pp": 7.2
+    },
+    "Bellary Road 1": {
+      "lstm_auc": 0.6786,
+      "persistence_auc": 0.5166,
+      "delta_pp": 16.2
+    },
+    "Bellary Road 2": {
+      "lstm_auc": 0.6573,
+      "persistence_auc": 0.5448,
+      "delta_pp": 11.2
+    },
+    "Hosur Road": {
+      "lstm_auc": 0.4198,
+      "persistence_auc": 0.5683,
+      "delta_pp": -14.8
+    },
+    "Mysore Road": {
+      "lstm_auc": 0.741,
+      "persistence_auc": 0.5511,
+      "delta_pp": 19.0
+    },
+    "ORR North 1": {
+      "lstm_auc": 0.4146,
+      "persistence_auc": 0.541,
+      "delta_pp": -12.6
+    },
+    "Old Madras Road": {
+      "lstm_auc": 0.5308,
+      "persistence_auc": 0.5385,
+      "delta_pp": -0.8
+    },
+    "Tumkur Road": {
+      "lstm_auc": 0.6789,
+      "persistence_auc": 0.5275,
+      "delta_pp": 15.1
+    }
+  }
 }
