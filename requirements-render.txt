@@ -1,6 +1,4 @@
-# Deployment requirements (Render/Railway). CPU-only torch keeps the build small
-# enough for free tiers — the default CUDA torch wheel is ~2GB and overruns them.
-# Local development still uses requirements.txt.
+# Deployment requirements (Render/Railway). CPU-only torch keeps the build small.
 fastapi
 uvicorn[standard]
 websockets
@@ -10,4 +8,4 @@ scikit-learn
 xgboost
 joblib
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.2.2+cpu
+torch==2.12.1+cpu
