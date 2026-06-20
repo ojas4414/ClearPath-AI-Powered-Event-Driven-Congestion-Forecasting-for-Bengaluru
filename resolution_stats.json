@@ -1,0 +1,29 @@
+{
+  "avg_baseline_minutes": 97.22,
+  "per_corridor": {
+    "Airport New South Road": 155.53,
+    "Bannerghata Road": 56.91,
+    "Bellary Road 1": 102.92,
+    "Bellary Road 2": 103.59,
+    "CBD 1": 36.1,
+    "CBD 2": 117.6,
+    "Hennur Main Road": 81.81,
+    "Hosur Road": 74.78,
+    "IRR(Thanisandra road)": 56.82,
+    "Magadi Road": 75.66,
+    "Mysore Road": 77.83,
+    "Non-corridor": 113.87,
+    "ORR East 1": 136.34,
+    "ORR East 2": 77.45,
+    "ORR North 1": 119.95,
+    "ORR North 2": 58.89,
+    "ORR West 1": 126.4,
+    "Old Airport Road": 79.22,
+    "Old Madras Road": 55.14,
+    "Tumkur Road": 86.94,
+    "Unknown": 1.72,
+    "Varthur Road": 54.32,
+    "West of Chord Road": 47.06
+  },
+  "total_events_with_resolution": 2464
+}

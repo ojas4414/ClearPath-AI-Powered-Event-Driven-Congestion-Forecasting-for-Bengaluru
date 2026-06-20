@@ -1,0 +1,28 @@
+{
+  "xgb_accuracy": 1.0,
+  "xgb_precision": 1.0,
+  "xgb_recall": 1.0,
+  "xgb_f1": 1.0,
+  "feature_importance": {
+    "corridor_encoded": 0.784,
+    "events_in_corridor_last_2hrs": 0.1808,
+    "event_cause_encoded": 0.0092,
+    "requires_road_closure": 0.007,
+    "hour": 0.0067,
+    "month": 0.005,
+    "day_of_week": 0.0047,
+    "is_weekend": 0.0027
+  },
+  "confusion_matrix": [
+    [
+      617,
+      0
+    ],
+    [
+      0,
+      995
+    ]
+  ],
+  "lstm_final_loss": 0.0043,
+  "lstm_corridors_trained": 23
+}

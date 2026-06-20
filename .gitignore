@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+server.log
+*.mp4
+*.mov
+*.avi
+Astram event data_anonymized*

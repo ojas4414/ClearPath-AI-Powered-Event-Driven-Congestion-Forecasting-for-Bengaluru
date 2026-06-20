@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+websockets
+pandas
+numpy
+scikit-learn
+xgboost
+torch
+joblib

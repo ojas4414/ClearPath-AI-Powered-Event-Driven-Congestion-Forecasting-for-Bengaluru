@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ClearPath — AI-Powered Congestion Forecasting</title>
+<meta name="description" content="ClearPath turns Bengaluru's road-event feed into live, actionable traffic-control decisions using XGBoost + LSTM.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --bg2: #0f1420;
+    --panel: rgba(17, 24, 39, 0.7);
+    --panel-solid: #111827;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --muted: #6b7280;
+    --text: #e5e7eb;
+    --text-bright: #f9fafb;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59,130,246,0.25);
+    --red: #ef4444;
+    --red-glow: rgba(239,68,68,0.2);
+    --orange: #f59e0b;
+    --orange-glow: rgba(245,158,11,0.2);
+    --green: #10b981;
+    --green-glow: rgba(16,185,129,0.2);
+    --gradient-accent: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    --gradient-danger: linear-gradient(135deg, #ef4444, #f59e0b);
+    --gradient-success: linear-gradient(135deg, #10b981, #3b82f6);
+    --radius: 14px;
+    --radius-sm: 10px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(59,130,246,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.06) 0%, transparent 50%);
+  }
+
+  /* === HEADER === */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px; flex-wrap: wrap; gap: 12px;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
+    background: var(--gradient-accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .tagline { color: var(--muted); font-size: 13px; font-weight: 500; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--green);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+  }
+
+  /* === CARDS === */
+  .card {
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    transition: border-color 0.3s ease, transform 0.2s ease;
+  }
+  .card:hover { border-color: var(--border-hover); }
+
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--muted); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title .icon { font-size: 14px; }
+  .section-subtitle {
+    font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; opacity: 0.7;
+  }
+
+  /* === HERO STATS === */
+  .hero-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.3s ease;
+  }
+  .stat-card:hover { transform: translateY(-2px); border-color: var(--border-hover); }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--gradient-accent); opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .stat-card:hover::before { opacity: 1; }
+  .stat-card.saved { border-color: rgba(16,185,129,0.3); }
+  .stat-card.saved::before { background: var(--gradient-success); opacity: 1; }
+  .stat-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 26px; font-weight: 800; color: var(--text-bright);
+    letter-spacing: -0.5px;
+  }
+  .stat-value.small { font-size: 18px; }
+  .stat-value.green { color: var(--green); }
+
+  /* === LAYOUTS === */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+  .full-width { margin-bottom: 24px; }
+
+  /* === FORM ELEMENTS === */
+  label {
+    display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--muted); margin: 14px 0 6px;
+  }
+  select, button, input[type="range"] { font-family: 'Inter', sans-serif; }
+  select {
+    width: 100%; padding: 10px 14px; border-radius: var(--radius-sm);
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+  .btn-primary {
+    width: 100%; padding: 12px 18px; border-radius: var(--radius-sm); border: none;
+    background: var(--gradient-accent); color: #fff; font-size: 13px; font-weight: 700;
+    cursor: pointer; margin-top: 18px; letter-spacing: 0.3px;
+    transition: opacity 0.2s, transform 0.1s;
+    box-shadow: 0 2px 12px var(--accent-glow);
+  }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-secondary {
+    width: auto; padding: 10px 18px; border-radius: var(--radius-sm);
+    background: var(--panel-solid); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-inline {
+    padding: 10px 20px; border-radius: var(--radius-sm); border: none;
+    background: var(--gradient-accent); color: #fff; font-size: 12px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 2px 8px var(--accent-glow);
+    transition: opacity 0.2s;
+  }
+  .btn-inline:hover { opacity: 0.9; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  /* === BADGES === */
+  .badge {
+    display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 999px;
+    font-weight: 700; font-size: 11px; color: #fff; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .b-critical { background: var(--red); box-shadow: 0 0 12px var(--red-glow); }
+  .b-high { background: var(--orange); box-shadow: 0 0 12px var(--orange-glow); }
+  .b-normal { background: var(--green); box-shadow: 0 0 12px var(--green-glow); }
+
+  /* === RESULT ROWS === */
+  .result-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .result-row span:first-child { color: var(--muted); font-weight: 500; }
+  .result-row:last-child { border-bottom: none; }
+  .reason-text { margin-top: 14px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .model-note {
+    margin-top: 10px; padding: 10px 14px; border-radius: var(--radius-sm);
+    background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.15);
+    font-size: 11px; color: var(--accent); line-height: 1.5;
+  }
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; }
+
+  /* === IMPACT BAR === */
+  .impact-bar { height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .impact-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--green), var(--orange), var(--red));
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  /* === LIVE FEED === */
+  .feed-item {
+    padding: 12px 14px; border-left: 3px solid var(--accent);
+    background: var(--bg2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    margin-bottom: 8px; font-size: 13px;
+    animation: slideIn 0.3s ease-out;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  .feed-item .feed-ts { color: var(--muted); font-size: 10px; margin-top: 4px; font-weight: 500; }
+
+  /* === MAP === */
+  #map { height: 420px; border-radius: var(--radius); z-index: 1; }
+  .map-legend {
+    display: flex; align-items: center; gap: 18px; margin-top: 12px;
+    font-size: 12px; color: var(--muted); font-weight: 500;
+  }
+  .map-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+  /* === CHART === */
+  .chart-controls { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
+  .chart-controls > div { flex: 1; min-width: 160px; }
+  #forecastChart { max-height: 320px; }
+
+  /* === TABS === */
+  .tab-bar { display: flex; gap: 2px; margin-bottom: 18px; }
+  .tab-btn {
+    padding: 8px 18px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; border: none;
+    background: var(--bg2); color: var(--muted); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;
+  }
+  .tab-btn.active { background: var(--accent); color: #fff; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* === SIMULATOR === */
+  .sim-row {
+    display: grid; grid-template-columns: 30px 160px 1fr 90px 70px; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    opacity: 0; animation: fadeIn 0.35s ease forwards;
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .sim-bar-bg { background: var(--bg2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .sim-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .cascade-tag { font-size: 10px; color: var(--orange); display: block; margin-top: 2px; }
+
+  /* === RISK GRID === */
+  .risk-grid-wrap { overflow-x: auto; margin-top: 12px; }
+  .risk-grid { display: grid; grid-template-columns: 130px repeat(24, 1fr); gap: 2px; min-width: 760px; }
+  .rg-header { font-size: 9px; color: var(--muted); text-align: center; padding: 2px 0; font-weight: 600; }
+  .rg-label { font-size: 11px; color: var(--muted); display: flex; align-items: center; padding-right: 6px; font-weight: 500; }
+  .rg-cell { height: 24px; border-radius: 3px; cursor: default; position: relative; transition: transform 0.1s; }
+  .rg-cell:hover { transform: scale(1.3); z-index: 5; }
+  .rg-cell:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+    background: #000; color: #fff; font-size: 10px; padding: 4px 8px; border-radius: 6px;
+    white-space: nowrap; pointer-events: none; z-index: 10; font-weight: 600;
+  }
+  .rg-legend { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 11px; color: var(--muted); }
+  .rg-legend-bar { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--green), var(--orange), var(--red)); }
+
+  /* === OPTIMIZER === */
+  .opt-row {
+    display: grid; grid-template-columns: 150px 60px 1fr; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .opt-bar-bg { background: var(--bg2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .opt-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+  /* === BRIEFING === */
+  .briefing-box {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 16px; font-size: 12px; color: var(--text); line-height: 1.8;
+    margin-top: 14px; white-space: pre-wrap; font-family: 'JetBrains Mono', 'Consolas', monospace;
+    display: none;
+  }
+  .briefing-box.show { display: block; animation: fadeIn 0.3s ease; }
+
+  /* === MODEL DETAILS === */
+  .toggle-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--panel-solid); border: 1px solid var(--border);
+    color: var(--text); padding: 10px 18px; margin-bottom: 24px;
+    font-size: 12px; font-weight: 700; border-radius: var(--radius-sm);
+    cursor: pointer; transition: border-color 0.2s; font-family: 'Inter', sans-serif;
+  }
+  .toggle-btn:hover { border-color: var(--accent); }
+  #model-details { display: none; margin-bottom: 24px; }
+  #model-details.open { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .metric-box {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px; text-align: center;
+  }
+  .metric-box .m-label { font-size: 10px; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+  .metric-box .m-value { font-size: 18px; font-weight: 800; margin-top: 4px; color: var(--text-bright); }
+  .cm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-width: 260px; }
+  .cm-cell { border-radius: var(--radius-sm); padding: 14px; text-align: center; font-size: 13px; }
+  .cm-cell .cm-label { font-size: 9px; opacity: .85; text-transform: uppercase; font-weight: 700; }
+  .cm-cell .cm-value { font-size: 20px; font-weight: 800; }
+  .cm-correct { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); }
+  .cm-wrong { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); }
+  .feat-row { margin-bottom: 10px; }
+  .feat-row .feat-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; font-weight: 500; }
+  .feat-bar-bg { background: var(--bg2); border-radius: 4px; height: 8px; overflow: hidden; }
+  .feat-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.6s ease; }
+  .feat-row.top .feat-bar-fill { background: var(--orange); }
+  .lstm-note { grid-column: 1 / -1; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 14px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .xgb-note {
+    margin-top: 14px; padding: 12px 16px; border-radius: var(--radius-sm);
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
+    font-size: 11px; color: var(--orange); line-height: 1.6;
+  }
+
+  /* === SPINNER === */
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+  /* === FADE-IN ON SCROLL === */
+  .reveal {
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: repeat(3, 1fr); }
+    .two-col { grid-template-columns: 1fr; }
+    #model-details.open { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .hero-grid { grid-template-columns: repeat(2, 1fr); }
+    body { padding: 14px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ═══ HEADER ═══ -->
+  <header class="header">
+    <div class="header-left">
+      <div>
+        <div class="logo">🚦 ClearPath</div>
+        <div class="tagline">AI-Powered Congestion Forecasting · Flipkart Gridlock 2.0</div>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span id="conn">connecting…</span>
+    </div>
+  </header>
+
+  <!-- ═══ 1. HERO STATS ═══ -->
+  <div class="hero-grid reveal">
+    <div class="stat-card">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value" id="s-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Peak Hour</div>
+      <div class="stat-value" id="s-peak">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top Corridor</div>
+      <div class="stat-value small" id="s-corridor">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Response (Historical)</div>
+      <div class="stat-value" id="i-baseline">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Response (ClearPath)</div>
+      <div class="stat-value" id="i-clearpath">—</div>
+    </div>
+    <div class="stat-card saved">
+      <div class="stat-label">Time Saved</div>
+      <div class="stat-value green" id="i-saved">—</div>
+    </div>
+  </div>
+
+  <!-- ═══ 2. CITY MAP ═══ -->
+  <div class="card full-width reveal">
+    <div class="section-title"><span class="icon">🗺️</span> City Map — Bengaluru (Real BTP Data)</div>
+    <div class="section-subtitle">
+      2,000 sampled events from the Astram dataset projected onto Bengaluru's real geography.
+      Red = High priority, Blue = Low priority. Click markers for details.
+    </div>
+    <div id="map"></div>
+    <div class="map-legend">
+      <span><span class="map-legend-dot" style="background:#ef4444"></span> High Priority</span>
+      <span><span class="map-legend-dot" style="background:#3b82f6"></span> Low Priority</span>
+      <span style="margin-left: auto; opacity:0.6">Tiles © OpenStreetMap</span>
+    </div>
+  </div>
+
+  <!-- ═══ 3. COMMAND CENTER ═══ -->
+  <div class="two-col reveal">
+    <!-- Recommendation Panel -->
+    <div class="card" id="reco-card">
+      <div class="section-title"><span class="icon">⚡</span> Get Recommendation</div>
+      <div class="section-subtitle">
+        Select a corridor, event cause, and hour to get a real-time AI recommendation:
+        officers needed, barricades, diversion route, and estimated response time.
+      </div>
+      <label for="corridor">Corridor</label>
+      <select id="corridor"></select>
+      <label for="cause">Event Cause</label>
+      <select id="cause"></select>
+      <label for="hour">Hour of Day</label>
+      <select id="hour"></select>
+      <button class="btn-primary" onclick="getRecommendation()">Get Recommendation</button>
+      <div id="result" style="margin-top:18px"></div>
+    </div>
+
+    <!-- Live Feed -->
+    <div class="card">
+      <div class="section-title"><span class="icon">📡</span> Live Alert Feed</div>
+      <div class="section-subtitle">
+        WebSocket stream — ClearPath scores a new corridor every 30s using the real current time,
+        cycling through 8 high-traffic roads. Color = severity tier.
+      </div>
+      <div id="feed"><div class="empty">Waiting for alerts…</div></div>
+    </div>
+  </div>
+
+  <!-- ═══ 4. 24h FORECAST CHART ═══ -->
+  <div class="card full-width reveal">
+    <div class="section-title"><span class="icon">📈</span> 24-Hour Risk Forecast</div>
+    <div class="section-subtitle">
+      Predicted impact score across all 24 hours for a given corridor — shows when each road is most dangerous.
+    </div>
+    <div class="chart-controls">
+      <div>
+        <label for="chart-corridor">Corridor</label>
+        <select id="chart-corridor"></select>
+      </div>
+      <div>
+        <label for="chart-day">Day of Week</label>
+        <select id="chart-day"></select>
+      </div>
+      <div style="padding-bottom:1px">
+        <button class="btn-inline" onclick="loadForecastChart()" style="margin-top:22px">Load Forecast</button>
+      </div>
+    </div>
+    <div style="position:relative; max-height:340px;">
+      <canvas id="forecastChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ 5. RISK INTELLIGENCE (Tabbed: Simulator + Heatmap) ═══ -->
+  <div class="card full-width reveal">
+    <div class="section-title"><span class="icon">🎯</span> Risk Intelligence</div>
+    <div class="section-subtitle">
+      Proactive risk assessment — simulate worst-case scenarios or view the full-day heatmap across all major corridors.
+    </div>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('sim')">Worst-Case Simulator</button>
+      <button class="tab-btn" onclick="switchTab('grid')">24×7 Heatmap</button>
+    </div>
+
+    <!-- Tab 1: Simulator -->
+    <div class="tab-content active" id="tab-sim">
+      <div style="display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px">
+        <div style="flex:1; min-width:180px">
+          <label for="sim-hour">Hour: <span id="sim-hour-value">18:00</span></label>
+          <input type="range" id="sim-hour" min="0" max="23" value="18"
+                 oninput="document.getElementById('sim-hour-value').textContent = String(this.value).padStart(2,'0')+':00'">
+        </div>
+        <div style="flex:1; min-width:140px">
+          <label for="sim-day">Day of Week</label>
+          <select id="sim-day"></select>
+        </div>
+        <div style="display:flex; gap:8px">
+          <button class="btn-inline" onclick="runSimulation()">Simulate</button>
+          <button class="btn-secondary" onclick="generateBriefing()">📋 Shift Briefing</button>
+        </div>
+      </div>
+      <div id="sim-results"><div class="empty">Select hour + day and click Simulate.</div></div>
+      <div id="briefing-box" class="briefing-box"></div>
+    </div>
+
+    <!-- Tab 2: Heatmap -->
+    <div class="tab-content" id="tab-grid">
+      <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px">
+        <div style="min-width:160px">
+          <label for="grid-day">Day of Week</label>
+          <select id="grid-day"></select>
+        </div>
+        <button class="btn-inline" onclick="loadRiskGrid()">Load Heatmap</button>
+      </div>
+      <div class="risk-grid-wrap">
+        <div id="risk-grid-container"><div class="empty">Select a day and click Load Heatmap.</div></div>
+      </div>
+      <div class="rg-legend" style="margin-top:10px">
+        <span>Low</span><div class="rg-legend-bar"></div><span>High</span>
+        <span style="margin-left:16px; opacity:0.6">Based on vehicle_breakdown (neutral, 1.0× multiplier)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 6. RESOURCE DEPLOYMENT (Standalone) ═══ -->
+  <div class="card full-width reveal">
+    <div class="section-title"><span class="icon">👮</span> Resource Deployment Optimizer</div>
+    <div class="section-subtitle">
+      Given officers on duty, optimally distributes them across corridors based on predicted risk.
+      Fully standalone — computes risk internally, no prerequisites.
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap">
+      <div style="flex:1; min-width:180px">
+        <label for="opt-hour">Hour: <span id="opt-hour-value">18:00</span></label>
+        <input type="range" id="opt-hour" min="0" max="23" value="18"
+               oninput="document.getElementById('opt-hour-value').textContent = String(this.value).padStart(2,'0')+':00'">
+      </div>
+      <div style="flex:1; min-width:140px">
+        <label for="opt-day">Day of Week</label>
+        <select id="opt-day"></select>
+      </div>
+      <div style="flex:1; min-width:180px">
+        <label for="opt-officers">Total Officers: <strong id="opt-officers-value">30</strong></label>
+        <input type="range" id="opt-officers" min="10" max="100" value="30"
+               oninput="document.getElementById('opt-officers-value').textContent = this.value">
+      </div>
+      <div>
+        <button class="btn-inline" onclick="optimizeDeployment()">Optimize</button>
+      </div>
+    </div>
+    <div id="opt-results" style="margin-top:16px"><div class="empty">Adjust parameters and click Optimize.</div></div>
+  </div>
+
+  <!-- ═══ 7. MODEL TRANSPARENCY ═══ -->
+  <button class="toggle-btn" id="toggle-model-details" onclick="toggleModelDetails()">▼ Model Transparency</button>
+  <div id="model-details">
+    <div class="card">
+      <div class="section-title"><span class="icon">🤖</span> XGBoost Performance</div>
+      <div class="section-subtitle">Validated on a held-out 20% test split (stratified). Real numbers from training on the Astram dataset.</div>
+      <div class="metric-grid">
+        <div class="metric-box"><div class="m-label">Accuracy</div><div class="m-value" id="m-acc">—</div></div>
+        <div class="metric-box"><div class="m-label">Precision</div><div class="m-value" id="m-prec">—</div></div>
+        <div class="metric-box"><div class="m-label">Recall</div><div class="m-value" id="m-rec">—</div></div>
+        <div class="metric-box"><div class="m-label">F1</div><div class="m-value" id="m-f1">—</div></div>
+      </div>
+      <div class="cm-grid" id="cm-grid"></div>
+      <div class="xgb-note">
+        ⚠️ <strong>Transparency note:</strong> 100% accuracy reflects that priority is near-deterministic given
+        corridor identity + recent event volume in this dataset (corridor_encoded importance = 0.784).
+        The LSTM forecaster provides the genuinely predictive, time-varying component of each recommendation.
+        We report this transparently rather than tuning metrics down.
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title"><span class="icon">📊</span> Feature Importance (Top 5)</div>
+      <div class="section-subtitle">Which inputs drive the XGBoost severity prediction. Corridor identity dominates — each road has a distinct baseline risk.</div>
+      <div id="feat-bars"></div>
+    </div>
+    <div class="lstm-note" id="lstm-note">—</div>
+  </div>
+
+<script>
+const API = location.origin;
+
+const CORRIDORS = ["Mysore Road","Bellary Road 1","Bellary Road 2","Tumkur Road","Hosur Road",
+  "ORR East 1","Old Madras Road","ORR North 1","Bannerghata Road","Magadi Road","CBD 1","CBD 2",
+  "Varthur Road","Hennur Main Road","Old Airport Road","West of Chord Road","Non-corridor"];
+const CAUSES = ["vehicle_breakdown","accident","pot_holes","construction","water_logging",
+  "tree_fall","road_conditions","others","public_event","procession","congestion"];
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+const DIVERSION_MAP = {
+  "Mysore Road": "Magadi Road", "Bellary Road 1": "Tumkur Road", "Bellary Road 2": "Tumkur Road",
+  "Hosur Road": "Bannerghatta Road", "Tumkur Road": "West of Chord Road",
+};
+
+// ── Populate dropdowns ────────────────────────────────────────────────────────
+function fill(id, items, fmt) {
+  const el = document.getElementById(id);
+  el.innerHTML = items.map(i => `<option value="${i}">${fmt ? fmt(i) : i}</option>`).join("");
+}
+["corridor","chart-corridor"].forEach(id => fill(id, CORRIDORS));
+fill("cause", CAUSES, c => c.replace(/_/g," "));
+fill("hour", [...Array(24).keys()], h => `${String(h).padStart(2,"0")}:00`);
+["sim-day","grid-day","chart-day","opt-day"].forEach(id => {
+  fill(id, DAYS.map((_,i) => i), i => DAYS[i]);
+  document.getElementById(id).value = "1";
+});
+
+// ── Intersection Observer for scroll reveals ──────────────────────────────────
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("visible"); } });
+}, { threshold: 0.1 });
+document.querySelectorAll(".reveal").forEach(el => observer.observe(el));
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function animateValue(el, target, suffix = "") {
+  const start = 0; const duration = 800; const startTime = performance.now();
+  function update(now) {
+    const p = Math.min(1, (now - startTime) / duration);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = (typeof target === "number" ? Math.round(target * ease).toLocaleString() : target) + suffix;
+    if (p < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/stats`); const d = await r.json();
+    animateValue(document.getElementById("s-total"), d.total_events);
+    document.getElementById("s-peak").textContent = `${String(d.peak_hour).padStart(2,"0")}:00`;
+    document.getElementById("s-corridor").textContent = d.top_corridor;
+  } catch(e) { document.getElementById("conn").textContent = "API offline"; }
+}
+
+async function loadImpactStats() {
+  try {
+    const r = await fetch(`${API}/impact-stats`); const d = await r.json();
+    document.getElementById("i-baseline").textContent = `${d.avg_baseline_minutes} min`;
+    document.getElementById("i-clearpath").textContent = `${d.avg_with_clearpath_minutes} min`;
+    document.getElementById("i-saved").textContent = `${d.time_saved_minutes} min (${d.pct_improvement}%)`;
+  } catch(e) {}
+}
+
+// ── Recommendation ────────────────────────────────────────────────────────────
+const badgeClass = s => s === "Critical" ? "b-critical" : s === "High" ? "b-high" : "b-normal";
+
+async function getRecommendation() {
+  const hour = parseInt(document.getElementById("hour").value, 10);
+  const body = {
+    corridor: document.getElementById("corridor").value,
+    event_cause: document.getElementById("cause").value,
+    hour, day_of_week: new Date().getDay() === 0 ? 6 : new Date().getDay() - 1,
+    is_weekend: [0,6].includes(new Date().getDay()),
+    requires_road_closure: false
+  };
+  const res = document.getElementById("result");
+  res.innerHTML = `<div class="loading-text"><span class="spinner"></span> Analyzing…</div>`;
+  try {
+    const r = await fetch(`${API}/predict`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    res.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span class="badge ${badgeClass(d.severity)}">${d.severity}</span>
+        <strong style="font-size:20px">${d.impact_score}/100</strong>
+      </div>
+      <div class="impact-bar"><div class="impact-fill" style="width:${d.impact_score}%"></div></div>
+      <div style="margin-top:14px">
+        <div class="result-row"><span>Officers</span><span style="font-weight:700">${d.officers_recommended}</span></div>
+        <div class="result-row"><span>Barricades</span><span>${d.barricades_needed ? "✅ Yes" : "No"}</span></div>
+        <div class="result-row"><span>Diversion</span><span>${d.diversion_suggested ? d.suggested_diversion : "Not needed"}</span></div>
+        <div class="result-row"><span>Est. Response</span><span>${d.estimated_response_min} min</span></div>
+        <div class="result-row"><span>Time Saved</span><span style="color:var(--green);font-weight:700">↓ ${d.time_saved_min} min</span></div>
+      </div>
+      <div class="reason-text">${d.reason}</div>
+      ${d.model_note ? `<div class="model-note">💡 ${d.model_note}</div>` : ""}`;
+  } catch(e) {
+    res.innerHTML = `<div class="empty">Could not reach API. Is the server running?</div>`;
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+const feed = [];
+function connectWS() {
+  const wsUrl = `ws://${location.host}/ws/alerts`;
+  let ws;
+  try { ws = new WebSocket(wsUrl); } catch(e) { document.getElementById("conn").textContent = "WS unavailable"; return; }
+  ws.onopen = () => document.getElementById("conn").textContent = "live";
+  ws.onclose = () => {
+    document.getElementById("conn").textContent = "reconnecting…";
+    setTimeout(connectWS, 5000);
+  };
+  ws.onmessage = (ev) => {
+    const a = JSON.parse(ev.data);
+    feed.unshift(a); if (feed.length > 5) feed.pop();
+    document.getElementById("feed").innerHTML = feed.map(x => `
+      <div class="feed-item" style="border-left-color:${
+        x.severity==='Critical'?'var(--red)':x.severity==='High'?'var(--orange)':'var(--green)'}">
+        <strong>${x.corridor}</strong> —
+        <span class="badge ${badgeClass(x.severity)}" style="font-size:10px;padding:3px 10px">${x.severity}</span>
+        · ${x.impact_score}/100
+        <div class="feed-ts">${x.timestamp.replace("T"," ").slice(0,19)}</div>
+      </div>`).join("");
+  };
+}
+
+// ── Leaflet Map ───────────────────────────────────────────────────────────────
+let leafletMap;
+async function loadMap() {
+  leafletMap = L.map('map', { zoomControl: true, attributionControl: false }).setView([12.97, 77.59], 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 18
+  }).addTo(leafletMap);
+  try {
+    const r = await fetch(`${API}/heatmap-data`); const points = await r.json();
+    points.forEach(p => {
+      if (!p.lat || !p.lon) return;
+      const color = p.priority === "High" ? "#ef4444" : "#3b82f6";
+      L.circleMarker([p.lat, p.lon], {
+        radius: 4, fillColor: color, color: color, weight: 0.5, opacity: 0.8, fillOpacity: 0.6
+      }).addTo(leafletMap)
+       .bindPopup(`<strong>${p.corridor || 'Unknown'}</strong><br>Cause: ${(p.event_cause||'').replace(/_/g,' ')}<br>Priority: ${p.priority}`);
+    });
+  } catch(e) {
+    document.getElementById("map").innerHTML = '<div class="empty" style="padding:40px">Could not load map data</div>';
+  }
+}
+
+// ── Chart.js Forecast ─────────────────────────────────────────────────────────
+let forecastChartInstance = null;
+async function loadForecastChart() {
+  const corridor = document.getElementById("chart-corridor").value;
+  const day = document.getElementById("chart-day").value;
+  try {
+    const r = await fetch(`${API}/forecast-chart?corridor=${encodeURIComponent(corridor)}&day_of_week=${day}`);
+    const d = await r.json();
+    const ctx = document.getElementById("forecastChart").getContext("2d");
+    if (forecastChartInstance) forecastChartInstance.destroy();
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+    gradient.addColorStop(0, "rgba(59,130,246,0.3)");
+    gradient.addColorStop(1, "rgba(59,130,246,0.01)");
+
+    forecastChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: d.hours.map(h => `${String(h).padStart(2,"0")}:00`),
+        datasets: [{
+          label: `Impact Score — ${corridor}`,
+          data: d.scores,
+          borderColor: "#3b82f6",
+          backgroundColor: gradient,
+          borderWidth: 2.5,
+          pointBackgroundColor: d.scores.map(s => s > 75 ? "#ef4444" : s > 45 ? "#f59e0b" : "#10b981"),
+          pointBorderColor: "transparent",
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          fill: true,
+          tension: 0.35,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: "#9ca3af", font: { family: "Inter", size: 12, weight: 600 } } },
+          tooltip: {
+            backgroundColor: "#1f2937", titleColor: "#e5e7eb", bodyColor: "#9ca3af",
+            borderColor: "#374151", borderWidth: 1, cornerRadius: 8,
+            callbacks: {
+              label: (ctx) => {
+                const s = ctx.parsed.y;
+                const sev = s > 75 ? "Critical" : s > 45 ? "High" : "Normal";
+                return `Score: ${s}/100 (${sev})`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: "#6b7280", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+          y: { min: 0, max: 100, ticks: { color: "#6b7280", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" },
+               title: { display: true, text: "Impact Score", color: "#6b7280", font: { size: 11 } } }
+        }
+      }
+    });
+  } catch(e) {}
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Simulator ─────────────────────────────────────────────────────────────────
+let lastSimResults = [];
+async function runSimulation() {
+  const hour = document.getElementById("sim-hour").value;
+  const day = document.getElementById("sim-day").value;
+  const panel = document.getElementById("sim-results");
+  panel.innerHTML = `<div class="loading-text"><span class="spinner"></span> Simulating worst-case across all corridors…</div>`;
+  document.getElementById("briefing-box").className = "briefing-box";
+  try {
+    const r = await fetch(`${API}/simulate?hour=${hour}&day_of_week=${day}`);
+    const data = await r.json();
+    const rows = data.results.slice(0, 8);
+    lastSimResults = rows;
+    panel.innerHTML = rows.map((row, i) => {
+      const overflow = row.sim_severity === "Critical" && DIVERSION_MAP[row.corridor]
+        ? `<span class="cascade-tag">→ overflow: ${DIVERSION_MAP[row.corridor]}</span>` : "";
+      return `
+      <div class="sim-row" style="animation-delay:${i * 60}ms">
+        <span style="color:var(--muted);font-weight:700">${i + 1}</span>
+        <span>${row.corridor}${overflow}</span>
+        <div class="sim-bar-bg"><div class="sim-bar-fill" style="width:${row.worst_impact_score}%; background:${
+          row.sim_severity==='Critical'?'var(--red)':row.sim_severity==='High'?'var(--orange)':'var(--green)'}"></div></div>
+        <span class="badge ${badgeClass(row.sim_severity)}">${row.sim_severity}</span>
+        <span style="text-align:right;font-weight:600">${row.sim_severity==='Critical'?10:row.sim_severity==='High'?5:2} off.</span>
+      </div>`;
+    }).join("");
+  } catch(e) { panel.innerHTML = `<div class="empty">Could not reach /simulate.</div>`; }
+}
+
+// ── Shift Briefing ────────────────────────────────────────────────────────────
+function generateBriefing() {
+  const box = document.getElementById("briefing-box");
+  if (!lastSimResults.length) { box.textContent = "Run a simulation first."; box.className = "briefing-box show"; return; }
+  const hour = document.getElementById("sim-hour").value;
+  const dayName = DAYS[document.getElementById("sim-day").value];
+  const critical = lastSimResults.filter(r => r.sim_severity === "Critical");
+  const high = lastSimResults.filter(r => r.sim_severity === "High");
+  const normal = lastSimResults.filter(r => r.sim_severity === "Normal");
+  const divLines = critical.filter(r => DIVERSION_MAP[r.corridor]).map(r => `  • ${r.corridor} → divert via ${DIVERSION_MAP[r.corridor]}`);
+  let text = `CLEARPATH SHIFT BRIEFING\n${dayName.toUpperCase()} ${String(hour).padStart(2,"0")}:00\n${"─".repeat(40)}\n\n`;
+  if (critical.length) { text += `🔴 CRITICAL — deploy 10 officers each:\n`; critical.forEach(r => text += `  • ${r.corridor} (score ${r.worst_impact_score}/100)\n`); text += `\n`; }
+  if (high.length) { text += `🟠 HIGH — deploy 5 officers each:\n`; high.forEach(r => text += `  • ${r.corridor} (score ${r.worst_impact_score}/100)\n`); text += `\n`; }
+  if (normal.length) { text += `🟢 NORMAL — 2 officers on standby:\n`; normal.forEach(r => text += `  • ${r.corridor} (score ${r.worst_impact_score}/100)\n`); text += `\n`; }
+  if (divLines.length) { text += `DIVERSION ORDERS:\n${divLines.join("\n")}\n\n`; }
+  text += `Generated by ClearPath AI · ${new Date().toLocaleTimeString()}`;
+  box.textContent = text; box.className = "briefing-box show";
+}
+
+// ── Risk Heatmap Grid ─────────────────────────────────────────────────────────
+function scoreToColor(score) {
+  const t = Math.min(1, score / 100);
+  if (t < 0.45) {
+    return `rgb(${Math.round(16+(240-16)*(t/0.45))},${Math.round(185+(136-185)*(t/0.45))},${Math.round(129+(62-129)*(t/0.45))})`;
+  } else {
+    const p = (t - 0.45) / 0.55;
+    return `rgb(${Math.round(240+(239-240)*p)},${Math.round(136+(68-136)*p)},${Math.round(62+(68-62)*p)})`;
+  }
+}
+
+async function loadRiskGrid() {
+  const day = document.getElementById("grid-day").value;
+  const container = document.getElementById("risk-grid-container");
+  container.innerHTML = `<div class="loading-text"><span class="spinner"></span> Loading 24-hour risk grid…</div>`;
+  try {
+    const r = await fetch(`${API}/risk-grid?day_of_week=${day}`);
+    const data = await r.json();
+    let html = `<div class="risk-grid"><div class="rg-header"></div>`;
+    for (let h = 0; h < 24; h++) html += `<div class="rg-header">${String(h).padStart(2,"0")}</div>`;
+    data.grid.forEach(row => {
+      html += `<div class="rg-label">${row.corridor}</div>`;
+      row.scores.forEach((score, h) => {
+        html += `<div class="rg-cell" style="background:${scoreToColor(score)};opacity:0.85" data-tip="${row.corridor} ${String(h).padStart(2,'0')}:00 → ${score}/100"></div>`;
+      });
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+  } catch(e) { container.innerHTML = `<div class="empty">Could not load risk grid.</div>`; }
+}
+
+// ── Resource Optimizer (Standalone) ───────────────────────────────────────────
+async function optimizeDeployment() {
+  const panel = document.getElementById("opt-results");
+  const hour = document.getElementById("opt-hour").value;
+  const day = document.getElementById("opt-day").value;
+  const total = document.getElementById("opt-officers").value;
+  panel.innerHTML = `<div class="loading-text"><span class="spinner"></span> Computing optimal deployment…</div>`;
+  try {
+    const r = await fetch(`${API}/optimize?hour=${hour}&day_of_week=${day}&total_officers=${total}`);
+    const d = await r.json();
+    const maxAlloc = Math.max(...d.deployment.map(r => r.officers_allocated));
+    panel.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Distributing <strong>${d.total_officers} officers</strong> across ${d.deployment.length} corridors by risk score:
+      </div>` +
+      d.deployment.map(row => {
+        const sev = row.sim_severity;
+        const color = sev==='Critical'?'var(--red)':sev==='High'?'var(--orange)':'var(--green)';
+        return `<div class="opt-row">
+          <span style="font-weight:500">${row.corridor}</span>
+          <span style="font-weight:800;color:${color}">${row.officers_allocated} off.</span>
+          <div class="opt-bar-bg"><div class="opt-bar-fill" style="width:${(row.officers_allocated/maxAlloc)*100}%;background:${color}"></div></div>
+        </div>`;
+      }).join("") +
+      `<div style="font-size:11px;color:var(--muted);margin-top:12px">Total: ${d.deployment.reduce((a,r)=>a+r.officers_allocated,0)} officers</div>`;
+  } catch(e) { panel.innerHTML = `<div class="empty">Could not reach /optimize.</div>`; }
+}
+
+// ── Model Details ─────────────────────────────────────────────────────────────
+function renderConfusionMatrix(cm) {
+  const [[tn,fp],[fn,tp]] = cm;
+  const cells = [
+    {label:"True Neg",value:tn,cls:"cm-correct"},{label:"False Pos",value:fp,cls:"cm-wrong"},
+    {label:"False Neg",value:fn,cls:"cm-wrong"},{label:"True Pos",value:tp,cls:"cm-correct"},
+  ];
+  document.getElementById("cm-grid").innerHTML = cells.map(c =>
+    `<div class="cm-cell ${c.cls}"><div class="cm-label">${c.label}</div><div class="cm-value">${c.value}</div></div>`
+  ).join("");
+}
+
+function renderFeatureBars(importance) {
+  const entries = Object.entries(importance).slice(0, 5);
+  const max = entries.length ? entries[0][1] : 1;
+  document.getElementById("feat-bars").innerHTML = entries.map(([name, val], i) => `
+    <div class="feat-row ${i === 0 ? 'top' : ''}">
+      <div class="feat-label"><span>${name}</span><span>${val.toFixed(3)}</span></div>
+      <div class="feat-bar-bg"><div class="feat-bar-fill" style="width:${(val/max)*100}%"></div></div>
+    </div>`).join("");
+}
+
+let modelDetailsLoaded = false;
+function toggleModelDetails() {
+  const panel = document.getElementById("model-details");
+  const btn = document.getElementById("toggle-model-details");
+  const opening = !panel.classList.contains("open");
+  panel.classList.toggle("open");
+  btn.textContent = opening ? "▲ Model Transparency" : "▼ Model Transparency";
+  if (opening && !modelDetailsLoaded) { loadModelMetrics(); modelDetailsLoaded = true; }
+}
+
+async function loadModelMetrics() {
+  try {
+    const r = await fetch(`${API}/model-metrics`); const d = await r.json();
+    document.getElementById("m-acc").textContent = (d.xgb_accuracy * 100).toFixed(1) + "%";
+    document.getElementById("m-prec").textContent = (d.xgb_precision * 100).toFixed(1) + "%";
+    document.getElementById("m-rec").textContent = (d.xgb_recall * 100).toFixed(1) + "%";
+    document.getElementById("m-f1").textContent = (d.xgb_f1 * 100).toFixed(1) + "%";
+    renderConfusionMatrix(d.confusion_matrix);
+    renderFeatureBars(d.feature_importance);
+    document.getElementById("lstm-note").innerHTML =
+      `<strong>LSTM Forecaster:</strong> ${d.lstm_corridors_trained} per-corridor models trained independently on hourly event-count sequences. Final avg training loss: ${d.lstm_final_loss}. Each corridor gets its own model so local traffic rhythms are learned separately.`;
+  } catch(e) {
+    document.getElementById("model-details").innerHTML = `<div class="empty">Could not load model metrics.</div>`;
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadStats();
+loadImpactStats();
+loadMap();
+connectWS();
+// Auto-load the forecast chart for Mysore Road on first load
+setTimeout(() => loadForecastChart(), 500);
+</script>
+</body>
+</html>
