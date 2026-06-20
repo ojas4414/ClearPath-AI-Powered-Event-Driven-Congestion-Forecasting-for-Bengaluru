@@ -159,19 +159,23 @@ def _make_sequences(series, seq_len=SEQ_LEN):
     return X, y
 
 
-def train_lstm(min_hours=60, epochs=40):
+def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
     """
     WHAT: Train one LSTM per corridor on its hourly count series; save to lstm_models/{corridor}.pt.
+    Uses a chronological 80/20 train/val split so the reported MAE is a genuine held-out metric,
+    not training loss. Also reports MAE against a naive last-value baseline so the improvement
+    is meaningful and verifiable, not just a loss number.
     WHY per-corridor: each corridor has its own rhythm and base volume. A dedicated model per
     corridor learns that local pattern instead of being averaged into a generic city-wide curve.
-    Corridors with too little history (<min_hours) are skipped — there isn't enough signal to fit.
-    A normalisation scale is saved alongside each model so the recommender can de-normalise outputs.
+    WHY chronological split: shuffling a time series leaks future information into training.
     """
     print("\n----- Model B: LSTM per-corridor forecaster -----")
     os.makedirs(LSTM_DIR, exist_ok=True)
     hourly = pd.read_csv(HOURLY_CSV, parse_dates=["hour_bucket"])
 
     trained, skipped, final_losses = 0, 0, []
+    all_mae, all_naive_mae = [], []
+
     for corridor, g in hourly.groupby("corridor"):
         g = g.sort_values("hour_bucket")
         series = g["event_count"].to_numpy(dtype=np.float32)
@@ -179,10 +183,14 @@ def train_lstm(min_hours=60, epochs=40):
             skipped += 1
             continue
 
-        # Scale by max so the LSTM trains on 0..1; store scale to invert at inference.
-        scale = float(series.max()) or 1.0
-        norm = series / scale
-        X, y = _make_sequences(norm)
+        # Chronological 80/20 split — never shuffle a time series.
+        split = int(len(series) * (1 - val_pct))
+        train_series = series[:split]
+        val_series   = series[split:]
+
+        scale = float(train_series.max()) or 1.0
+        norm_train = train_series / scale
+        X, y = _make_sequences(norm_train)
         if X is None:
             skipped += 1
             continue
@@ -199,18 +207,56 @@ def train_lstm(min_hours=60, epochs=40):
             loss.backward()
             opt.step()
 
+        # Held-out evaluation: rolling one-step-ahead forecast on val set.
+        # Seed the LSTM with the last SEQ_LEN training points, then advance
+        # using actual observations (teacher-forcing) so errors don't compound.
+        model.eval()
+        if len(val_series) > 0:
+            seed = norm_train[-SEQ_LEN:].copy()
+            preds, targets = [], []
+            for actual in val_series:
+                x = torch.from_numpy(seed.reshape(1, SEQ_LEN, 1).astype(np.float32))
+                with torch.no_grad():
+                    pred = model(x).item() * scale
+                preds.append(pred)
+                targets.append(float(actual))
+                seed = np.append(seed[1:], actual / scale)  # shift window
+
+            mae = float(np.mean(np.abs(np.array(preds) - np.array(targets))))
+            # Naive baseline: always predict the last observed training value.
+            naive_mae = float(np.mean(np.abs(train_series[-1] - np.array(targets))))
+            all_mae.append(mae)
+            all_naive_mae.append(naive_mae)
+            val_str = f"val_MAE={mae:.3f} naive_MAE={naive_mae:.3f}"
+        else:
+            val_str = "val=n/a"
+
         safe = corridor.replace("/", "_").replace(" ", "_")
         path = os.path.join(LSTM_DIR, f"{safe}.pt")
         torch.save({"state_dict": model.state_dict(), "scale": scale,
                     "corridor": corridor, "seq_len": SEQ_LEN}, path)
         trained += 1
         final_losses.append(float(loss.item()))
-        print(f"[lstm] {corridor:<20} hours={len(series):<5} "
-              f"final_loss={loss.item():.4f} -> {os.path.basename(path)}")
+        print(f"[lstm] {corridor:<22} hours={len(series):<5} "
+              f"train_loss={loss.item():.4f}  {val_str}")
 
-    print(f"[lstm] trained {trained} corridors, skipped {skipped} (insufficient history)")
     avg_final_loss = round(float(np.mean(final_losses)), 4) if final_losses else 0.0
-    return {"lstm_final_loss": avg_final_loss, "lstm_corridors_trained": trained}
+    avg_mae        = round(float(np.mean(all_mae)),       4) if all_mae else 0.0
+    avg_naive_mae  = round(float(np.mean(all_naive_mae)), 4) if all_naive_mae else 0.0
+    improvement    = round(100.0 * (avg_naive_mae - avg_mae) / avg_naive_mae, 1) if avg_naive_mae else 0.0
+
+    print(f"\n[lstm] trained={trained}  skipped={skipped} (insufficient history)")
+    print(f"[lstm] Held-out val MAE  (LSTM):  {avg_mae:.4f} events/hr")
+    print(f"[lstm] Held-out val MAE  (naive): {avg_naive_mae:.4f} events/hr")
+    print(f"[lstm] LSTM beats naive by        {improvement:.1f}%")
+
+    return {
+        "lstm_final_loss":                avg_final_loss,
+        "lstm_corridors_trained":         trained,
+        "lstm_val_mae":                   avg_mae,
+        "lstm_naive_baseline_mae":        avg_naive_mae,
+        "lstm_improvement_over_naive_pct": improvement,
+    }
 
 
 def load_lstm(corridor):

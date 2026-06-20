@@ -23,6 +23,9 @@
       995
     ]
   ],
-  "lstm_final_loss": 0.0043,
-  "lstm_corridors_trained": 23
+  "lstm_final_loss": 0.0048,
+  "lstm_corridors_trained": 23,
+  "lstm_val_mae": 0.1816,
+  "lstm_naive_baseline_mae": 0.1184,
+  "lstm_improvement_over_naive_pct": -53.4
 }
