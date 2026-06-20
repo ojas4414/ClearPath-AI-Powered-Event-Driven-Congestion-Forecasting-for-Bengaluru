@@ -179,21 +179,32 @@ def _recent_corridor_count(corridor, hour):
 
 def forecast_load(corridor, hour=None):
     """
-    WHAT: Use the corridor's LSTM to predict the event count for the given hour, feeding it the
-    corridor's TYPICAL event-count pattern for the 6 hours leading up to `hour` (from the
-    hour-of-day profile) rather than the literal last 6 calendar hours in the dataset.
-    WHY: A query for "2am" and a query for "6pm rush hour" must produce different forecasts.
-    Feeding the LSTM the literal tail of historical data ignores the requested hour entirely
-    (every query got the same answer); feeding it the corridor's typical hour-of-day pattern
-    makes the forecast time-of-day aware while still being driven by real historical data.
-    If `hour` is omitted (e.g. live "now" hotspot scans), we fall back to the literal recent
-    history, which is appropriate when forecasting the immediate next hour from now.
+    WHAT: Use the corridor's LSTM to produce a load signal for the given hour.
+    Returns (value, is_prob): when is_binary models are loaded, value is P(busy) in [0,1];
+    otherwise value is a predicted event count.  Returning a flag avoids the caller needing
+    to know which model generation is installed.
+    WHY binary: sparse Poisson counts are hard to regress; "will it be busy?" is a
+    well-posed classification problem.  The hour-of-day busy profile (built from training data
+    only) is fed as input so inference matches the validation path exactly.
     """
     _lazy_load()
     g = _hourly[_hourly["corridor"] == corridor].sort_values("hour_bucket")
     bundle = M.load_lstm(corridor)
     seq_len = bundle["seq_len"] if bundle else 6
 
+    if bundle is not None and bundle.get("is_binary", False):
+        hod_busy = bundle.get("hod_busy_profile")
+        if hod_busy is None or hour is None:
+            return 0.5, True
+        hours_seq = [(hour - seq_len + i) % 24 for i in range(seq_len)]
+        seq = hod_busy[hours_seq]
+        x = torch.from_numpy(seq.reshape(1, seq_len, 1).astype(np.float32))
+        with torch.no_grad():
+            logit = bundle["model"](x).item()
+        p_busy = 1.0 / (1.0 + float(np.exp(-logit)))
+        return p_busy, True
+
+    # Legacy regression path (fallback for old .pt files without is_binary flag)
     if hour is None:
         seq = g["event_count"].to_numpy(dtype=np.float32)[-seq_len:] if len(g) else np.array([])
     else:
@@ -205,14 +216,13 @@ def forecast_load(corridor, hour=None):
             seq = profile[hours]
 
     if bundle is None or len(seq) < seq_len:
-        # No model or not enough profile data -> historical mean as a safe fallback.
-        return float(g["event_count"].mean()) if len(g) else 0.0
+        return (float(g["event_count"].mean()) if len(g) else 0.0), False
 
     scale = bundle["scale"]
     x = torch.from_numpy((seq / scale).reshape(1, seq_len, 1).astype(np.float32))
     with torch.no_grad():
         pred = bundle["model"](x).item() * scale
-    return max(0.0, float(pred))
+    return max(0.0, float(pred)), False
 
 
 def _corridor_load_ceiling():
@@ -243,7 +253,7 @@ def _hour_risk(corridor, hour):
 
 
 def compute_impact_score(severity_proba, forecast_count, requires_road_closure=False,
-                          event_cause=None, hour_risk=0.0):
+                          event_cause=None, hour_risk=0.0, forecast_is_prob=False):
     """
     WHAT: Blend severity probability + forecast volume + hour-of-day risk (+ closure flag),
     then apply the event-cause multiplier, into a 0-100 score.
@@ -253,9 +263,13 @@ def compute_impact_score(severity_proba, forecast_count, requires_road_closure=F
     because a road closure inherently multiplies disruption, then scale by
     EVENT_CAUSE_MULTIPLIER because the same reading means something very different for a
     pothole vs. a public event blocking the road. Weights are explicit and tunable.
+    forecast_is_prob=True: forecast_count is already P(busy) in [0,1], use directly as volume_norm.
     """
-    ceiling = _corridor_load_ceiling()
-    volume_norm = min(1.0, forecast_count / ceiling)
+    if forecast_is_prob:
+        volume_norm = float(np.clip(forecast_count, 0.0, 1.0))
+    else:
+        ceiling = _corridor_load_ceiling()
+        volume_norm = min(1.0, forecast_count / ceiling)
     base_score = (0.50 * severity_proba + 0.30 * volume_norm + 0.20 * hour_risk) * 100.0
     if requires_road_closure:
         base_score = min(100.0, base_score + 12.0)  # closures amplify real-world impact
@@ -294,10 +308,11 @@ def recommend(corridor, event_cause, hour, day_of_week,
         corridor, event_cause, hour, day_of_week,
         is_weekend=is_weekend, requires_road_closure=requires_road_closure,
     )
-    forecast = forecast_load(corridor, hour)
+    forecast, forecast_is_prob = forecast_load(corridor, hour)
     hour_risk = _hour_risk(corridor, hour)
     base_impact, impact, multiplier = compute_impact_score(
         proba, forecast, requires_road_closure, event_cause=event_cause, hour_risk=hour_risk,
+        forecast_is_prob=forecast_is_prob,
     )
 
     if impact > 75:
@@ -316,10 +331,14 @@ def recommend(corridor, event_cause, hour, day_of_week,
     estimated_min = round(baseline_min * RESPONSE_TIME_FACTOR[severity], 1)
     time_saved_min = round(baseline_min - estimated_min, 1)
 
+    if forecast_is_prob:
+        forecast_str = f"LSTM busy-hour classifier: P(busy)={forecast:.0%}"
+    else:
+        forecast_str = f"LSTM forecasts ~{forecast:.1f} events next hour"
     reason = (
         f"{event_cause.replace('_', ' ')} on {corridor} at {hour:02d}:00. "
         f"Model severity P(High)={proba:.0%} ({sev_label}); "
-        f"LSTM forecasts ~{forecast:.1f} events next hour; "
+        f"{forecast_str}; "
         f"hour-of-day risk for this corridor: {hour_risk:.0%}. "
         f"Event type multiplier: {multiplier}x. "
         f"Combined impact score {impact}/100 -> {severity}. "

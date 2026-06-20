@@ -85,7 +85,7 @@ def compute_hotspots(top_n=10, horizon_hours=3):
     now = dt.datetime.now()
     rows = []
     for corridor in corridors:
-        forecast = R.forecast_load(corridor)
+        forecast, _ = R.forecast_load(corridor)
         # Evaluate the recommender across the horizon and keep the worst (peak) hour.
         peak = None
         for h in range(horizon_hours + 1):

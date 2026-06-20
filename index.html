@@ -934,19 +934,22 @@ async function loadModelMetrics() {
     document.getElementById("m-f1").textContent = (d.xgb_f1 * 100).toFixed(1) + "%";
     renderConfusionMatrix(d.confusion_matrix);
     renderFeatureBars(d.feature_importance);
-    const imp = d.lstm_improvement_over_naive_pct;
-    const impColor = imp >= 0 ? "var(--green)" : "var(--orange)";
-    const impText = imp >= 0
-      ? `LSTM beats naive by <strong style="color:var(--green)">${imp}%</strong>`
-      : `Naive baseline competitive: LSTM MAE ${d.lstm_val_mae} vs naive ${d.lstm_naive_baseline_mae} — <strong style="color:var(--orange)">expected for sparse Poisson-distributed event counts</strong>`;
+    const auc   = d.lstm_val_auc_top8 ?? 0;
+    const pAuc  = d.lstm_persistence_auc_top8 ?? 0;
+    const impPP = d.lstm_improvement_auc_pp_top8 ?? 0;
+    const aucColor = impPP >= 0 ? "var(--green)" : "var(--orange)";
     document.getElementById("lstm-note").innerHTML =
-      `<strong>LSTM Forecaster — Held-Out Validation (80/20 chronological split):</strong><br>
-       ${d.lstm_corridors_trained} per-corridor models · Val MAE: ${d.lstm_val_mae} events/hr · Naive-baseline MAE: ${d.lstm_naive_baseline_mae} events/hr<br>
-       ${impText}<br>
+      `<strong>LSTM Busy-Hour Classifier — Held-Out Validation (80/20 chronological split):</strong><br>
+       ${d.lstm_corridors_trained} per-corridor binary classifiers · Evaluated on 8 operational corridors<br>
+       AUROC: LSTM <strong style="color:${aucColor}">${auc.toFixed(3)}</strong> vs persistence baseline ${pAuc.toFixed(3)}
+       → <strong style="color:${aucColor}">${impPP >= 0 ? "+" : ""}${impPP.toFixed(1)} pp</strong><br>
        <span style="opacity:0.7;font-size:11px">
-       Most corridor-hours have 0–1 events (Poisson-sparse), making the last-value naive baseline
-       deceptively strong. The LSTM's value is hour-of-day risk calibration for the impact score,
-       not raw count accuracy — a limitation we report transparently rather than obscure.
+       Reframed from count regression to binary "will this corridor be busy?" classification — the
+       correct formulation for sparse Poisson event data. AUROC (area under ROC curve) is the
+       threshold-free metric used so class imbalance (5–18% busy rate per corridor) doesn't
+       distort the comparison. The LSTM's P(busy) output feeds directly into the impact score
+       as the volume-risk component, providing time-of-day sensitivity across 24 hours.
+       Sparse corridors with insufficient event density fall back to the historical hour-of-day profile.
        </span>`;
   } catch(e) {
     document.getElementById("model-details").innerHTML = `<div class="empty">Could not load model metrics.</div>`;

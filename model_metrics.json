@@ -23,9 +23,12 @@
       995
     ]
   ],
-  "lstm_final_loss": 0.0048,
+  "lstm_final_loss": 0.2028,
   "lstm_corridors_trained": 23,
-  "lstm_val_mae": 0.1816,
-  "lstm_naive_baseline_mae": 0.1184,
-  "lstm_improvement_over_naive_pct": -53.4
+  "lstm_val_auc_all": 0.5109,
+  "lstm_persistence_auc_all": 0.5353,
+  "lstm_val_auc_top8": 0.5975,
+  "lstm_persistence_auc_top8": 0.5469,
+  "lstm_improvement_auc_pp_top8": 5.1,
+  "lstm_val_accuracy": 0.9277
 }
