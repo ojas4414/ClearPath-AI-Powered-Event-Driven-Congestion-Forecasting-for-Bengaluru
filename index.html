@@ -671,7 +671,8 @@ async function getRecommendation() {
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 const feed = [];
 function connectWS() {
-  const wsUrl = `ws://${location.host}/ws/alerts`;
+  const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${wsProto}//${location.host}/ws/alerts`;
   let ws;
   try { ws = new WebSocket(wsUrl); } catch(e) { document.getElementById("conn").textContent = "WS unavailable"; return; }
   ws.onopen = () => document.getElementById("conn").textContent = "live";

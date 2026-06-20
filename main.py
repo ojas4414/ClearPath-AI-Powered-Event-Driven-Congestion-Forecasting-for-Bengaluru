@@ -450,7 +450,9 @@ async def ws_alerts(ws: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+    # Respect the host-provided $PORT (Render/Railway/etc.); default to 8000 locally.
+    port = int(os.environ.get("PORT", 8000))
     print("=" * 60)
-    print("ClearPath API starting on http://localhost:8000  (docs at /docs)")
+    print(f"ClearPath API starting on http://0.0.0.0:{port}  (docs at /docs)")
     print("=" * 60)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=port)

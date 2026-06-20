@@ -1,0 +1,12 @@
+# Render blueprint for ClearPath. Connect this repo on render.com and it deploys
+# the FastAPI dashboard + API at a public HTTPS URL (the "Demo Link").
+services:
+  - type: web
+    name: clearpath
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements-render.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
