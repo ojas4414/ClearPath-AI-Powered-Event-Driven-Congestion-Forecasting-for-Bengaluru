@@ -7,5 +7,6 @@ vendor/* linguist-vendored
 *.min.js linguist-vendored
 *.min.css linguist-vendored
 
-# HTML templates are documentation, not the primary language
+# Frontend files are not the primary language
 *.html linguist-documentation=true
+*.js linguist-documentation=true
