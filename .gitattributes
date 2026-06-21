@@ -1,0 +1,11 @@
+﻿# Exclude dependency directories from language stats
+node_modules/* linguist-vendored
+venv/* linguist-vendored
+.venv/* linguist-vendored
+env/* linguist-vendored
+vendor/* linguist-vendored
+*.min.js linguist-vendored
+*.min.css linguist-vendored
+
+# HTML templates are documentation, not the primary language
+*.html linguist-documentation=true
