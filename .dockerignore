@@ -1,0 +1,10 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.log
+*.mp4
+clearpath.db
+.venv/
+venv/
+_verify.py

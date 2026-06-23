@@ -95,6 +95,80 @@
     font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; opacity: 0.7;
   }
 
+  /* === FRIENDLINESS LAYER (quick-start, group dividers, chips, hints) === */
+  .quickstart {
+    display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(59,130,246,0.10), rgba(139,92,246,0.06));
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; margin-bottom: 28px;
+  }
+  .qs-intro { flex: 1; min-width: 240px; }
+  .qs-intro h2 { font-size: 16px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
+  .qs-intro p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .qs-steps { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .qs-step {
+    display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text);
+    background: var(--panel-solid); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px;
+  }
+  .qs-step b {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%; font-size: 11px;
+    background: var(--gradient-accent); color: #fff;
+  }
+  .group-divider {
+    display: flex; align-items: center; gap: 12px; margin: 38px 2px 18px;
+  }
+  .group-divider .gd-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 8px; font-size: 13px; font-weight: 800;
+    background: var(--gradient-accent); color: #fff; flex-shrink: 0;
+  }
+  .group-divider .gd-title { font-size: 17px; font-weight: 700; color: var(--text-bright); }
+  .group-divider .gd-sub { font-size: 12px; color: var(--muted); }
+  .group-divider .gd-line { flex: 1; height: 1px; background: var(--border); }
+
+  /* result chips + collapsible "why" */
+  .chip-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .chip {
+    display: flex; flex-direction: column; gap: 2px;
+    background: var(--panel-solid); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; min-width: 92px;
+  }
+  .chip .chip-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+  .chip .chip-value { font-size: 16px; font-weight: 700; color: var(--text-bright); }
+  .why-toggle {
+    cursor: pointer; font-size: 12px; color: var(--accent); margin-top: 12px;
+    user-select: none; display: inline-block;
+  }
+  .why-toggle:hover { text-decoration: underline; }
+  .why-body {
+    display: none; font-size: 12px; color: var(--muted); line-height: 1.6;
+    margin-top: 8px; padding: 12px; background: rgba(255,255,255,0.02);
+    border-left: 2px solid var(--border); border-radius: 0 8px 8px 0;
+  }
+  .why-body.open { display: block; }
+  .hint { font-size: 12px; color: var(--accent); opacity: 0.85; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* live-reported incident highlight in the feed */
+  .live-tag {
+    background: var(--red); color: #fff; font-size: 9.5px; font-weight: 700;
+    padding: 2px 7px; border-radius: 6px; letter-spacing: .3px; white-space: nowrap;
+  }
+  .feed-live { background: var(--red-glow); animation: livePulse 1.4s ease; }
+  @keyframes livePulse {
+    0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    100% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+  }
+
   /* === HERO STATS === */
   .hero-grid {
     display: grid;
@@ -364,6 +438,29 @@
     </div>
   </header>
 
+  <!-- ═══ QUICK START ═══ -->
+  <div class="quickstart">
+    <div class="qs-intro">
+      <h2>👋 What is this?</h2>
+      <p>ClearPath predicts where Bengaluru traffic is about to break down — especially around
+         <strong>events</strong> like matches, rallies and festivals — and tells the control room
+         exactly how many officers to send, where to barricade, and which roads to divert.</p>
+    </div>
+    <div class="qs-steps">
+      <div class="qs-step"><b>1</b> Try <strong>Plan an Event</strong> below</div>
+      <div class="qs-step"><b>2</b> Watch the map light up affected roads</div>
+      <div class="qs-step"><b>3</b> Read the deployment &amp; learning panels</div>
+    </div>
+  </div>
+
+  <!-- ═══ GROUP A — LIVE OPERATIONS ═══ -->
+  <div class="group-divider">
+    <span class="gd-num">A</span>
+    <span class="gd-title">Live Operations</span>
+    <span class="gd-sub">— the city right now</span>
+    <span class="gd-line"></span>
+  </div>
+
   <!-- ═══ 1. HERO STATS ═══ -->
   <div class="hero-grid reveal">
     <div class="stat-card">
@@ -411,10 +508,10 @@
   <div class="two-col reveal">
     <!-- Recommendation Panel -->
     <div class="card" id="reco-card">
-      <div class="section-title"><span class="icon">⚡</span> Get Recommendation</div>
+      <div class="section-title"><span class="icon">⚡</span> Quick Check — One Road</div>
       <div class="section-subtitle">
-        Select a corridor, event cause, and hour to get a real-time AI recommendation:
-        officers needed, barricades, diversion route, and estimated response time.
+        Pick a road, what's happening, and the time — get the call: how many officers,
+        barricades, diversion, and how much time it saves.
       </div>
       <label for="corridor">Corridor</label>
       <select id="corridor"></select>
@@ -423,25 +520,89 @@
       <label for="hour">Hour of Day</label>
       <select id="hour"></select>
       <button class="btn-primary" onclick="getRecommendation()">Get Recommendation</button>
-      <div id="result" style="margin-top:18px"></div>
+      <div id="result" style="margin-top:18px"><div class="empty">👉 Choose options above and click <strong>Get Recommendation</strong>.</div></div>
     </div>
 
     <!-- Live Feed -->
     <div class="card">
       <div class="section-title"><span class="icon">📡</span> Live Alert Feed</div>
       <div class="section-subtitle">
-        WebSocket stream — ClearPath scores a new corridor every 30s using the real current time,
-        cycling through 8 high-traffic roads. Color = severity tier.
+        A fresh corridor is scored every 30 seconds using the current time — newest on top.
+        Colour = how severe.
       </div>
       <div id="feed"><div class="empty">Waiting for alerts…</div></div>
     </div>
+  </div>
+
+  <!-- ═══ REPORT LIVE INCIDENT (live ingestion path) ═══ -->
+  <div class="card full-width reveal" id="report-card">
+    <div class="section-title"><span class="icon">🚨</span> Report a Live Incident</div>
+    <div class="section-subtitle">
+      Something happening <strong>right now</strong>? Report it — ClearPath scores it, saves it to
+      the operational database, and pushes it to <strong>every open dashboard's alert feed instantly</strong>
+      (look at the Live Alert Feed above when you submit).
+    </div>
+    <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap">
+      <div style="flex:2; min-width:180px"><label for="rep-corridor">Corridor</label><select id="rep-corridor"></select></div>
+      <div style="flex:1; min-width:150px"><label for="rep-cause">What's happening</label><select id="rep-cause"></select></div>
+      <div style="flex:1; min-width:110px"><label for="rep-hour">Time</label><select id="rep-hour"></select></div>
+      <div><button class="btn-primary" style="margin-top:0;background:var(--gradient-danger)" onclick="reportIncident()">🚨 Report Now</button></div>
+    </div>
+    <div id="rep-result" style="margin-top:14px"><div class="empty">👉 Report an incident, then watch it appear in the Live Alert Feed with a 🔴 LIVE tag.</div></div>
+  </div>
+
+  <!-- ═══ GROUP B — PLAN AHEAD ═══ -->
+  <div class="group-divider">
+    <span class="gd-num">B</span>
+    <span class="gd-title">Plan Ahead</span>
+    <span class="gd-sub">— forecast events &amp; position resources before they hit</span>
+    <span class="gd-line"></span>
+  </div>
+
+  <!-- ═══ 3.5 PLAN AN EVENT (event-driven core) ═══ -->
+  <div class="card full-width reveal" id="event-card">
+    <div class="section-title"><span class="icon">🎪</span> Plan an Event — Impact Forecast &amp; Deployment</div>
+    <div class="section-subtitle">
+      The event-driven core: describe a <strong>specific planned event</strong> — a match, rally,
+      festival or VIP movement — and ClearPath forecasts which corridors it will hit, sizes the
+      manpower to the crowd (1 officer / 2,000 attendees), and lights up the map below.
+    </div>
+    <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px">
+      <div style="flex:2; min-width:220px">
+        <label for="ev-venue">Venue</label>
+        <select id="ev-venue" onchange="onVenuePick()"></select>
+      </div>
+      <div style="flex:1; min-width:130px">
+        <label for="ev-type">Event Type</label>
+        <select id="ev-type"></select>
+      </div>
+      <div style="flex:1; min-width:130px">
+        <label for="ev-date">Date</label>
+        <input type="date" id="ev-date" value="2026-06-27">
+      </div>
+      <div style="flex:1; min-width:110px">
+        <label for="ev-hour">Hour: <span id="ev-hour-value">19:00</span></label>
+        <input type="range" id="ev-hour" min="0" max="23" value="19"
+               oninput="document.getElementById('ev-hour-value').textContent = String(this.value).padStart(2,'0')+':00'">
+      </div>
+      <div style="flex:1.4; min-width:180px">
+        <label for="ev-att">Expected Attendance: <strong id="ev-att-value">40,000</strong></label>
+        <input type="range" id="ev-att" min="2000" max="80000" step="1000" value="40000"
+               oninput="document.getElementById('ev-att-value').textContent = (+this.value).toLocaleString()">
+      </div>
+      <div><button class="btn-primary" onclick="planEvent()" style="margin-top:0">Forecast Impact</button></div>
+    </div>
+    <div id="ev-summary"></div>
+    <div id="ev-map" style="height:300px; border-radius:var(--radius-sm); margin:12px 0; display:none"></div>
+    <div id="ev-results"><div class="empty">👉 Try <span class="hint">M. Chinnaswamy Stadium · 40,000 people · 7 PM</span> and hit <strong>Forecast Impact</strong>.</div></div>
   </div>
 
   <!-- ═══ 4. 24h FORECAST CHART ═══ -->
   <div class="card full-width reveal">
     <div class="section-title"><span class="icon">📈</span> 24-Hour Risk Forecast</div>
     <div class="section-subtitle">
-      Predicted impact score across all 24 hours for a given corridor — shows when each road is most dangerous.
+      <strong>Drill-down</strong> — predicted impact score across all 24 hours for <em>one</em> corridor
+      (pick it below). The 24×7 heatmap further down is the all-corridors overview of this same metric.
     </div>
     <div class="chart-controls">
       <div>
@@ -461,63 +622,36 @@
     </div>
   </div>
 
-  <!-- ═══ 5. RISK INTELLIGENCE (Tabbed: Simulator + Heatmap) ═══ -->
+  <!-- ═══ 5. 24×7 RISK HEATMAP (overview of all corridors) ═══ -->
   <div class="card full-width reveal">
-    <div class="section-title"><span class="icon">🎯</span> Risk Intelligence</div>
+    <div class="section-title"><span class="icon">🎯</span> 24×7 Risk Heatmap</div>
     <div class="section-subtitle">
-      Proactive risk assessment — simulate worst-case scenarios or view the full-day heatmap across all major corridors.
+      <strong>Overview</strong> — every major corridor × every hour at a glance (the chart above is
+      the drill-down for one corridor; this is the whole city). Spot which roads are dangerous when.
     </div>
-    <div class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('sim')">Worst-Case Simulator</button>
-      <button class="tab-btn" onclick="switchTab('grid')">24×7 Heatmap</button>
+    <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px">
+      <div style="min-width:160px">
+        <label for="grid-day">Day of Week</label>
+        <select id="grid-day"></select>
+      </div>
+      <button class="btn-inline" onclick="loadRiskGrid()">Load Heatmap</button>
     </div>
-
-    <!-- Tab 1: Simulator -->
-    <div class="tab-content active" id="tab-sim">
-      <div style="display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px">
-        <div style="flex:1; min-width:180px">
-          <label for="sim-hour">Hour: <span id="sim-hour-value">18:00</span></label>
-          <input type="range" id="sim-hour" min="0" max="23" value="18"
-                 oninput="document.getElementById('sim-hour-value').textContent = String(this.value).padStart(2,'0')+':00'">
-        </div>
-        <div style="flex:1; min-width:140px">
-          <label for="sim-day">Day of Week</label>
-          <select id="sim-day"></select>
-        </div>
-        <div style="display:flex; gap:8px">
-          <button class="btn-inline" onclick="runSimulation()">Simulate</button>
-          <button class="btn-secondary" onclick="generateBriefing()">📋 Shift Briefing</button>
-        </div>
-      </div>
-      <div id="sim-results"><div class="empty">Select hour + day and click Simulate.</div></div>
-      <div id="briefing-box" class="briefing-box"></div>
+    <div class="risk-grid-wrap">
+      <div id="risk-grid-container"><div class="empty">👉 Pick a day and click <strong>Load Heatmap</strong> to see every road × every hour.</div></div>
     </div>
-
-    <!-- Tab 2: Heatmap -->
-    <div class="tab-content" id="tab-grid">
-      <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px">
-        <div style="min-width:160px">
-          <label for="grid-day">Day of Week</label>
-          <select id="grid-day"></select>
-        </div>
-        <button class="btn-inline" onclick="loadRiskGrid()">Load Heatmap</button>
-      </div>
-      <div class="risk-grid-wrap">
-        <div id="risk-grid-container"><div class="empty">Select a day and click Load Heatmap.</div></div>
-      </div>
-      <div class="rg-legend" style="margin-top:10px">
-        <span>Low</span><div class="rg-legend-bar"></div><span>High</span>
-        <span style="margin-left:16px; opacity:0.6">Based on vehicle_breakdown (neutral, 1.0× multiplier)</span>
-      </div>
+    <div class="rg-legend" style="margin-top:10px">
+      <span>Low</span><div class="rg-legend-bar"></div><span>High</span>
+      <span style="margin-left:16px; opacity:0.6">Based on vehicle_breakdown (neutral, 1.0× multiplier)</span>
     </div>
   </div>
 
   <!-- ═══ 6. RESOURCE DEPLOYMENT (Standalone) ═══ -->
   <div class="card full-width reveal">
-    <div class="section-title"><span class="icon">👮</span> Resource Deployment Optimizer</div>
+    <div class="section-title"><span class="icon">👮</span> Worst-Case Deployment Optimizer</div>
     <div class="section-subtitle">
-      Given officers on duty, optimally distributes them across corridors based on predicted risk.
-      Fully standalone — computes risk internally, no prerequisites.
+      Ranks every corridor by its <strong>worst-case</strong> risk at the chosen hour (sweeping all
+      event causes), then distributes the officers on duty across them — and exports a printable
+      shift briefing. Fully standalone, computes the risk ranking internally.
     </div>
     <div style="display:flex; gap:18px; align-items:flex-end; flex-wrap:wrap">
       <div style="flex:1; min-width:180px">
@@ -534,11 +668,50 @@
         <input type="range" id="opt-officers" min="10" max="100" value="30"
                oninput="document.getElementById('opt-officers-value').textContent = this.value">
       </div>
-      <div>
+      <div style="display:flex; gap:8px">
         <button class="btn-inline" onclick="optimizeDeployment()">Optimize</button>
+        <button class="btn-secondary" onclick="generateBriefing()">📋 Shift Briefing</button>
       </div>
     </div>
-    <div id="opt-results" style="margin-top:16px"><div class="empty">Adjust parameters and click Optimize.</div></div>
+    <div id="opt-results" style="margin-top:16px"><div class="empty">👉 Set the hour &amp; officers on duty, then click <strong>Optimize</strong> for a ranked deployment.</div></div>
+    <div id="briefing-box" class="briefing-box"></div>
+  </div>
+
+  <!-- ═══ GROUP C — UNDER THE HOOD ═══ -->
+  <div class="group-divider">
+    <span class="gd-num">C</span>
+    <span class="gd-title">Under the Hood</span>
+    <span class="gd-sub">— how it learns &amp; why you can trust the numbers</span>
+    <span class="gd-line"></span>
+  </div>
+
+  <!-- ═══ 6.5 POST-EVENT LEARNING ═══ -->
+  <div class="card full-width reveal" id="learning-card">
+    <div class="section-title"><span class="icon">🧠</span> Post-Event Learning Loop</div>
+    <div class="section-subtitle">
+      Closes the brief's "no post-event learning" gap. Every resolved event's <strong>actual</strong>
+      clear-time is compared to ClearPath's prediction and an online calibration corrects the next
+      one. Below: mean error (raw vs self-calibrated) over real Astram events, replayed in time order.
+    </div>
+    <div class="metric-grid" style="margin-bottom:8px">
+      <div class="metric-box"><div class="m-label">Events Learned From</div><div class="m-value" id="l-events">—</div></div>
+      <div class="metric-box"><div class="m-label">MAE Before</div><div class="m-value" id="l-raw">—</div></div>
+      <div class="metric-box"><div class="m-label">MAE After (calibrated)</div><div class="m-value" id="l-cal">—</div></div>
+      <div class="metric-box"><div class="m-label">Error Reduction</div><div class="m-value green" id="l-imp">—</div></div>
+    </div>
+    <div style="position:relative; max-height:300px"><canvas id="learningChart"></canvas></div>
+    <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-top:14px">
+      <div style="flex:1; min-width:150px">
+        <label for="fb-actual">Log an outcome — actual clear-time (min)</label>
+        <input type="number" id="fb-actual" value="180" min="1" max="1440">
+      </div>
+      <div style="flex:1; min-width:150px">
+        <label for="fb-pred">ClearPath predicted (min)</label>
+        <input type="number" id="fb-pred" value="160" min="1" max="1440">
+      </div>
+      <div><button class="btn-inline" onclick="submitFeedback()">Submit Outcome → Learn</button></div>
+    </div>
+    <div class="xgb-note" id="l-note">—</div>
   </div>
 
   <!-- ═══ 7. MODEL TRANSPARENCY ═══ -->
@@ -584,10 +757,12 @@ function fill(id, items, fmt) {
   const el = document.getElementById(id);
   el.innerHTML = items.map(i => `<option value="${i}">${fmt ? fmt(i) : i}</option>`).join("");
 }
-["corridor","chart-corridor"].forEach(id => fill(id, CORRIDORS));
-fill("cause", CAUSES, c => c.replace(/_/g," "));
-fill("hour", [...Array(24).keys()], h => `${String(h).padStart(2,"0")}:00`);
-["sim-day","grid-day","chart-day","opt-day"].forEach(id => {
+["corridor","chart-corridor","rep-corridor"].forEach(id => fill(id, CORRIDORS));
+["cause","rep-cause"].forEach(id => fill(id, CAUSES, c => c.replace(/_/g," ")));
+["hour","rep-hour"].forEach(id => fill(id, [...Array(24).keys()], h => `${String(h).padStart(2,"0")}:00`));
+// Default the live-report hour to the real current hour so it reads as "now".
+document.getElementById("rep-hour").value = new Date().getHours();
+["grid-day","chart-day","opt-day"].forEach(id => {
   fill(id, DAYS.map((_,i) => i), i => DAYS[i]);
   document.getElementById(id).value = "1";
 });
@@ -648,23 +823,61 @@ async function getRecommendation() {
       method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
     });
     const d = await r.json();
+    const plain = `On ${body.corridor} this scores <strong>${d.impact_score}/100</strong> →
+      <strong>${d.severity}</strong>. Send <strong>${d.officers_recommended} officers</strong>` +
+      (d.barricades_needed ? `, set up barricades` : ``) +
+      (d.diversion_suggested ? `, and divert via <strong>${d.suggested_diversion}</strong>` : ``) +
+      `. Expected to clear in ~${d.estimated_response_min} min (saving ${d.time_saved_min} min).`;
     res.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <span class="badge ${badgeClass(d.severity)}">${d.severity}</span>
-        <strong style="font-size:20px">${d.impact_score}/100</strong>
+        <strong style="font-size:22px">${d.impact_score}<span style="font-size:13px;color:var(--muted)">/100</span></strong>
       </div>
       <div class="impact-bar"><div class="impact-fill" style="width:${d.impact_score}%"></div></div>
-      <div style="margin-top:14px">
-        <div class="result-row"><span>Officers</span><span style="font-weight:700">${d.officers_recommended}</span></div>
-        <div class="result-row"><span>Barricades</span><span>${d.barricades_needed ? "✅ Yes" : "No"}</span></div>
-        <div class="result-row"><span>Diversion</span><span>${d.diversion_suggested ? d.suggested_diversion : "Not needed"}</span></div>
-        <div class="result-row"><span>Est. Response</span><span>${d.estimated_response_min} min</span></div>
-        <div class="result-row"><span>Time Saved</span><span style="color:var(--green);font-weight:700">↓ ${d.time_saved_min} min</span></div>
+      <div style="font-size:13px;color:var(--text);line-height:1.6;margin-top:12px">${plain}</div>
+      <div class="chip-row">
+        <div class="chip"><span class="chip-label">Officers</span><span class="chip-value">${d.officers_recommended}</span></div>
+        <div class="chip"><span class="chip-label">Barricades</span><span class="chip-value">${d.barricades_needed ? "Yes" : "No"}</span></div>
+        <div class="chip"><span class="chip-label">Diversion</span><span class="chip-value" style="font-size:13px">${d.diversion_suggested ? d.suggested_diversion : "—"}</span></div>
+        <div class="chip"><span class="chip-label">Time Saved</span><span class="chip-value" style="color:var(--green)">↓${d.time_saved_min}m</span></div>
       </div>
-      <div class="reason-text">${d.reason}</div>
-      ${d.model_note ? `<div class="model-note">💡 ${d.model_note}</div>` : ""}`;
+      <span class="why-toggle" onclick="this.nextElementSibling.classList.toggle('open')">▸ Why this score?</span>
+      <div class="why-body">${d.reason}${d.model_note ? `<br><br>💡 ${d.model_note}` : ""}</div>`;
   } catch(e) {
     res.innerHTML = `<div class="empty">Could not reach API. Is the server running?</div>`;
+  }
+}
+
+// ── Report Live Incident (live ingestion path) ────────────────────────────────
+async function reportIncident() {
+  const body = {
+    corridor: document.getElementById("rep-corridor").value,
+    event_cause: document.getElementById("rep-cause").value,
+    hour: parseInt(document.getElementById("rep-hour").value, 10),
+  };
+  const res = document.getElementById("rep-result");
+  res.innerHTML = `<div class="loading-text"><span class="spinner"></span> Ingesting & broadcasting…</div>`;
+  try {
+    const r = await fetch(`${API}/event`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    const rec = d.recommendation;
+    res.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="live-tag">🔴 INGESTED</span>
+        <span class="badge ${badgeClass(rec.severity)}">${rec.severity}</span>
+        <strong>${rec.impact_score}/100</strong>
+        <span style="color:var(--muted);font-size:12px">→ broadcast to ${d.broadcast_to} dashboard(s) · saved to DB</span>
+      </div>
+      <div class="chip-row">
+        <div class="chip"><span class="chip-label">Officers</span><span class="chip-value">${rec.officers_recommended}</span></div>
+        <div class="chip"><span class="chip-label">Barricades</span><span class="chip-value">${rec.barricades_needed ? "Yes" : "No"}</span></div>
+        <div class="chip"><span class="chip-label">Diversion</span><span class="chip-value" style="font-size:13px">${rec.diversion_suggested ? rec.suggested_diversion : "—"}</span></div>
+      </div>
+      <div class="hint" style="margin-top:8px">↑ It just appeared in the Live Alert Feed with a 🔴 LIVE tag.</div>`;
+  } catch(e) {
+    res.innerHTML = `<div class="empty">Could not reach /event.</div>`;
   }
 }
 
@@ -682,15 +895,18 @@ function connectWS() {
   };
   ws.onmessage = (ev) => {
     const a = JSON.parse(ev.data);
-    feed.unshift(a); if (feed.length > 5) feed.pop();
-    document.getElementById("feed").innerHTML = feed.map(x => `
-      <div class="feed-item" style="border-left-color:${
+    feed.unshift(a); if (feed.length > 6) feed.pop();
+    document.getElementById("feed").innerHTML = feed.map(x => {
+      const live = x.kind === "live";
+      return `
+      <div class="feed-item${live ? " feed-live" : ""}" style="border-left-color:${
         x.severity==='Critical'?'var(--red)':x.severity==='High'?'var(--orange)':'var(--green)'}">
-        <strong>${x.corridor}</strong> —
+        ${live ? `<span class="live-tag">🔴 LIVE REPORT</span> ` : ""}<strong>${x.corridor}</strong> —
         <span class="badge ${badgeClass(x.severity)}" style="font-size:10px;padding:3px 10px">${x.severity}</span>
-        · ${x.impact_score}/100
+        · ${x.impact_score}/100${live && x.event_cause ? ` · ${x.event_cause.replace(/_/g,' ')}` : ""}
         <div class="feed-ts">${x.timestamp.replace("T"," ").slice(0,19)}</div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   };
 }
 
@@ -775,58 +991,24 @@ async function loadForecastChart() {
   } catch(e) {}
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  document.getElementById(`tab-${tab}`).classList.add('active');
-  event.target.classList.add('active');
-}
-
-// ── Simulator ─────────────────────────────────────────────────────────────────
-let lastSimResults = [];
-async function runSimulation() {
-  const hour = document.getElementById("sim-hour").value;
-  const day = document.getElementById("sim-day").value;
-  const panel = document.getElementById("sim-results");
-  panel.innerHTML = `<div class="loading-text"><span class="spinner"></span> Simulating worst-case across all corridors…</div>`;
-  document.getElementById("briefing-box").className = "briefing-box";
-  try {
-    const r = await fetch(`${API}/simulate?hour=${hour}&day_of_week=${day}`);
-    const data = await r.json();
-    const rows = data.results.slice(0, 8);
-    lastSimResults = rows;
-    panel.innerHTML = rows.map((row, i) => {
-      const overflow = row.sim_severity === "Critical" && DIVERSION_MAP[row.corridor]
-        ? `<span class="cascade-tag">→ overflow: ${DIVERSION_MAP[row.corridor]}</span>` : "";
-      return `
-      <div class="sim-row" style="animation-delay:${i * 60}ms">
-        <span style="color:var(--muted);font-weight:700">${i + 1}</span>
-        <span>${row.corridor}${overflow}</span>
-        <div class="sim-bar-bg"><div class="sim-bar-fill" style="width:${row.worst_impact_score}%; background:${
-          row.sim_severity==='Critical'?'var(--red)':row.sim_severity==='High'?'var(--orange)':'var(--green)'}"></div></div>
-        <span class="badge ${badgeClass(row.sim_severity)}">${row.sim_severity}</span>
-        <span style="text-align:right;font-weight:600">${row.sim_severity==='Critical'?10:row.sim_severity==='High'?5:2} off.</span>
-      </div>`;
-    }).join("");
-  } catch(e) { panel.innerHTML = `<div class="empty">Could not reach /simulate.</div>`; }
-}
-
-// ── Shift Briefing ────────────────────────────────────────────────────────────
+// ── Shift Briefing (built from the optimizer's worst-case ranking + allocation) ──
+let lastOptResults = [];
+let lastOptHour = 18, lastOptDay = 1;
 function generateBriefing() {
   const box = document.getElementById("briefing-box");
-  if (!lastSimResults.length) { box.textContent = "Run a simulation first."; box.className = "briefing-box show"; return; }
-  const hour = document.getElementById("sim-hour").value;
-  const dayName = DAYS[document.getElementById("sim-day").value];
-  const critical = lastSimResults.filter(r => r.sim_severity === "Critical");
-  const high = lastSimResults.filter(r => r.sim_severity === "High");
-  const normal = lastSimResults.filter(r => r.sim_severity === "Normal");
+  if (!lastOptResults.length) { box.textContent = "Run Optimize first."; box.className = "briefing-box show"; return; }
+  const dayName = DAYS[lastOptDay];
+  const critical = lastOptResults.filter(r => r.sim_severity === "Critical");
+  const high = lastOptResults.filter(r => r.sim_severity === "High");
+  const normal = lastOptResults.filter(r => r.sim_severity === "Normal");
+  const line = r => `  • ${r.corridor} — ${r.officers_allocated} officers (worst-case ${r.worst_impact_score}/100)`;
   const divLines = critical.filter(r => DIVERSION_MAP[r.corridor]).map(r => `  • ${r.corridor} → divert via ${DIVERSION_MAP[r.corridor]}`);
-  let text = `CLEARPATH SHIFT BRIEFING\n${dayName.toUpperCase()} ${String(hour).padStart(2,"0")}:00\n${"─".repeat(40)}\n\n`;
-  if (critical.length) { text += `🔴 CRITICAL — deploy 10 officers each:\n`; critical.forEach(r => text += `  • ${r.corridor} (score ${r.worst_impact_score}/100)\n`); text += `\n`; }
-  if (high.length) { text += `🟠 HIGH — deploy 5 officers each:\n`; high.forEach(r => text += `  • ${r.corridor} (score ${r.worst_impact_score}/100)\n`); text += `\n`; }
-  if (normal.length) { text += `🟢 NORMAL — 2 officers on standby:\n`; normal.forEach(r => text += `  • ${r.corridor} (score ${r.worst_impact_score}/100)\n`); text += `\n`; }
+  let text = `CLEARPATH SHIFT BRIEFING\n${dayName.toUpperCase()} ${String(lastOptHour).padStart(2,"0")}:00\n${"─".repeat(40)}\n\n`;
+  if (critical.length) { text += `🔴 CRITICAL:\n`; critical.forEach(r => text += line(r) + "\n"); text += `\n`; }
+  if (high.length)     { text += `🟠 HIGH:\n`;     high.forEach(r => text += line(r) + "\n");     text += `\n`; }
+  if (normal.length)   { text += `🟢 NORMAL:\n`;   normal.forEach(r => text += line(r) + "\n");   text += `\n`; }
   if (divLines.length) { text += `DIVERSION ORDERS:\n${divLines.join("\n")}\n\n`; }
+  text += `Total deployed: ${lastOptResults.reduce((s, r) => s + r.officers_allocated, 0)} officers\n`;
   text += `Generated by ClearPath AI · ${new Date().toLocaleTimeString()}`;
   box.textContent = text; box.className = "briefing-box show";
 }
@@ -868,25 +1050,33 @@ async function optimizeDeployment() {
   const hour = document.getElementById("opt-hour").value;
   const day = document.getElementById("opt-day").value;
   const total = document.getElementById("opt-officers").value;
-  panel.innerHTML = `<div class="loading-text"><span class="spinner"></span> Computing optimal deployment…</div>`;
+  panel.innerHTML = `<div class="loading-text"><span class="spinner"></span> Ranking worst-case risk & computing deployment…</div>`;
+  document.getElementById("briefing-box").className = "briefing-box";
   try {
     const r = await fetch(`${API}/optimize?hour=${hour}&day_of_week=${day}&total_officers=${total}`);
     const d = await r.json();
+    lastOptResults = d.deployment; lastOptHour = +hour; lastOptDay = +day;
     const maxAlloc = Math.max(...d.deployment.map(r => r.officers_allocated));
     panel.innerHTML = `
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-        Distributing <strong>${d.total_officers} officers</strong> across ${d.deployment.length} corridors by risk score:
+        Corridors ranked by <strong>worst-case</strong> risk at ${String(hour).padStart(2,"0")}:00,
+        with <strong>${d.total_officers} officers</strong> distributed accordingly:
       </div>` +
-      d.deployment.map(row => {
+      d.deployment.map((row, i) => {
         const sev = row.sim_severity;
         const color = sev==='Critical'?'var(--red)':sev==='High'?'var(--orange)':'var(--green)';
+        const overflow = sev === "Critical" && DIVERSION_MAP[row.corridor]
+          ? `<span class="cascade-tag">→ overflow: ${DIVERSION_MAP[row.corridor]}</span>` : "";
         return `<div class="opt-row">
-          <span style="font-weight:500">${row.corridor}</span>
-          <span style="font-weight:800;color:${color}">${row.officers_allocated} off.</span>
+          <span style="color:var(--muted);font-weight:700;min-width:18px">${i+1}</span>
+          <span style="font-weight:500;flex:1">${row.corridor}${overflow}
+            <span style="color:var(--muted);font-size:11px"> · worst-case ${row.worst_impact_score}/100 (${row.worst_cause.replace(/_/g,' ')})</span></span>
+          <span class="badge ${badgeClass(sev)}">${sev}</span>
+          <span style="font-weight:800;color:${color};min-width:54px;text-align:right">${row.officers_allocated} off.</span>
           <div class="opt-bar-bg"><div class="opt-bar-fill" style="width:${(row.officers_allocated/maxAlloc)*100}%;background:${color}"></div></div>
         </div>`;
       }).join("") +
-      `<div style="font-size:11px;color:var(--muted);margin-top:12px">Total: ${d.deployment.reduce((a,r)=>a+r.officers_allocated,0)} officers</div>`;
+      `<div style="font-size:11px;color:var(--muted);margin-top:12px">Total: ${d.deployment.reduce((a,r)=>a+r.officers_allocated,0)} officers · use 📋 Shift Briefing for a printable order</div>`;
   } catch(e) { panel.innerHTML = `<div class="empty">Could not reach /optimize.</div>`; }
 }
 
@@ -969,11 +1159,154 @@ async function loadModelMetrics() {
        threshold-free metric used so class imbalance (5–18% busy rate per corridor) doesn't
        distort the comparison. The LSTM's P(busy) output feeds directly into the impact score
        as the volume-risk component, providing time-of-day sensitivity across 24 hours.
-       Sparse corridors with insufficient event density fall back to the historical hour-of-day profile.
+       </span>
+       <span style="display:block;margin-top:6px;font-size:11px;color:var(--green)">
+       ✅ Honest routing: only <strong>${d.lstm_corridors_using_lstm ?? "?"}/${d.lstm_corridors_total ?? "?"}</strong>
+       corridors are served by the LSTM — the ones where it actually beat persistence on held-out AUROC.
+       The rest (e.g. Hosur Road −14.8pp, ORR North 1 −12.6pp) fall back to the climatology baseline,
+       so a forecaster we proved was worse than doing nothing never reaches an operator.
        </span>`;
   } catch(e) {
     document.getElementById("model-details").innerHTML = `<div class="empty">Could not load model metrics.</div>`;
   }
+}
+
+// ── Plan an Event (event-driven core) ─────────────────────────────────────────
+let VENUES = [];
+async function loadVenues() {
+  try {
+    const r = await fetch(`${API}/venues`); const d = await r.json();
+    VENUES = d.venues;
+    document.getElementById("ev-venue").innerHTML =
+      VENUES.map((v, i) => `<option value="${i}">${v.name}</option>`).join("");
+    fill("ev-type", d.event_types, t => t.charAt(0).toUpperCase() + t.slice(1));
+    onVenuePick();
+  } catch(e) {}
+}
+function onVenuePick() {
+  const v = VENUES[parseInt(document.getElementById("ev-venue").value, 10)];
+  if (!v) return;
+  document.getElementById("ev-type").value = v.default_type;
+  document.getElementById("ev-att").value = v.default_attendance;
+  document.getElementById("ev-att-value").textContent = (+v.default_attendance).toLocaleString();
+}
+
+let eventMap, eventLayer;
+const sevColor = s => s === "Critical" ? "#ef4444" : s === "High" ? "#f59e0b" : "#10b981";
+
+function drawEventMap(data) {
+  const box = document.getElementById("ev-map");
+  box.style.display = "block";
+  if (!eventMap) {
+    eventMap = L.map('ev-map', { zoomControl: true, attributionControl: false }).setView([12.97, 77.59], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(eventMap);
+    eventLayer = L.layerGroup().addTo(eventMap);
+  }
+  eventLayer.clearLayers();
+  const v = data.venue;
+  L.marker([v.lat, v.lon]).addTo(eventLayer).bindPopup(`<b>${v.name}</b><br>${data.attendance.toLocaleString()} attendees`);
+  const bounds = [[v.lat, v.lon]];
+  data.affected_corridors.forEach(c => {
+    L.circleMarker([c.lat, c.lon], {
+      radius: 8 + c.event_impact / 8, color: sevColor(c.severity),
+      fillColor: sevColor(c.severity), fillOpacity: 0.5, weight: 2
+    }).addTo(eventLayer).bindPopup(
+      `<b>${c.corridor}</b><br>Impact ${c.event_impact}/100 (${c.severity})<br>` +
+      `${c.distance_km} km away · ${c.officers_allocated} officers` +
+      (c.diversion_suggested ? `<br>Divert via ${c.suggested_diversion}` : ""));
+    bounds.push([c.lat, c.lon]);
+  });
+  eventMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+  setTimeout(() => eventMap.invalidateSize(), 100);
+}
+
+async function planEvent() {
+  const v = VENUES[parseInt(document.getElementById("ev-venue").value, 10)];
+  const body = {
+    venue_lat: v.lat, venue_lon: v.lon, venue_name: v.name,
+    date: document.getElementById("ev-date").value || "2026-06-27",
+    hour: parseInt(document.getElementById("ev-hour").value, 10),
+    attendance: parseInt(document.getElementById("ev-att").value, 10),
+    event_type: document.getElementById("ev-type").value,
+  };
+  const res = document.getElementById("ev-results");
+  res.innerHTML = `<div class="loading-text"><span class="spinner"></span> Forecasting event impact…</div>`;
+  try {
+    const r = await fetch(`${API}/plan-event`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    document.getElementById("ev-summary").innerHTML =
+      `<div class="briefing-box" style="display:block">🎯 ${d.headline}</div>`;
+    drawEventMap(d);
+    res.innerHTML = `
+      <table class="data-table">
+        <thead><tr>
+          <th>Corridor</th><th>Distance</th><th>Impact</th>
+          <th>Severity</th><th>Officers</th><th>Barricades</th><th>Diversion</th></tr></thead>
+        <tbody>${d.affected_corridors.map(c => `
+          <tr>
+            <td><strong>${c.corridor}</strong></td>
+            <td>${c.distance_km} km</td>
+            <td><strong>${c.event_impact}</strong></td>
+            <td><span class="badge ${badgeClass(c.severity)}">${c.severity}</span></td>
+            <td style="font-weight:700">${c.officers_allocated}</td>
+            <td>${c.barricades_needed ? "✅" : "—"}</td>
+            <td>${c.diversion_suggested ? c.suggested_diversion : "—"}</td>
+          </tr>`).join("")}</tbody>
+      </table>
+      <div class="reason-text" style="margin-top:12px">
+        Total deployment: <strong>${d.total_officers} officers</strong> ·
+        ${d.total_barricades} barricade points · ${d.diversions.length} diversions ·
+        crowd factor ${d.crowd_factor}× · mapped cause <em>${d.mapped_cause}</em>.
+      </div>`;
+  } catch(e) {
+    res.innerHTML = `<div class="empty">Could not reach /plan-event.</div>`;
+  }
+}
+
+// ── Post-Event Learning Loop ──────────────────────────────────────────────────
+let learningChartInstance;
+async function loadLearning() {
+  try {
+    const r = await fetch(`${API}/learning-status`); const d = await r.json();
+    document.getElementById("l-events").textContent = d.events_seen.toLocaleString();
+    document.getElementById("l-raw").textContent = `${d.mae_raw_min} min`;
+    document.getElementById("l-cal").textContent = `${d.mae_calibrated_min} min`;
+    document.getElementById("l-imp").textContent = `↓ ${d.improvement_pct}%`;
+    document.getElementById("l-note").innerHTML =
+      `Learned calibration bias: <strong>${d.current_bias_min} min</strong>. ${d.methodology}`;
+    const labels = d.history.map(h => h.n);
+    const ctx = document.getElementById("learningChart").getContext("2d");
+    if (learningChartInstance) learningChartInstance.destroy();
+    learningChartInstance = new Chart(ctx, {
+      type: "line",
+      data: { labels, datasets: [
+        { label: "MAE — static model", data: d.history.map(h => h.mae_raw),
+          borderColor: "#6b7280", backgroundColor: "transparent", tension: 0.3, pointRadius: 0, borderWidth: 2, borderDash: [6,4] },
+        { label: "MAE — self-calibrating", data: d.history.map(h => h.mae_cal),
+          borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2.5 },
+      ]},
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: "#e5e7eb" } } },
+        scales: { x: { title: { display: true, text: "events processed (chronological)", color: "#6b7280" }, ticks: { color: "#6b7280" }, grid: { color: "rgba(255,255,255,0.04)" } },
+                  y: { title: { display: true, text: "mean abs error (min)", color: "#6b7280" }, ticks: { color: "#6b7280" }, grid: { color: "rgba(255,255,255,0.04)" } } } }
+    });
+  } catch(e) {
+    document.getElementById("l-note").textContent = "Could not reach /learning-status.";
+  }
+}
+async function submitFeedback() {
+  const body = {
+    actual_min: parseFloat(document.getElementById("fb-actual").value),
+    predicted_min: parseFloat(document.getElementById("fb-pred").value),
+  };
+  try {
+    await fetch(`${API}/event-feedback`, {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    loadLearning();
+  } catch(e) {}
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -981,6 +1314,8 @@ loadStats();
 loadImpactStats();
 loadMap();
 connectWS();
+loadVenues();
+loadLearning();
 // Auto-load the forecast chart for Mysore Road on first load
 setTimeout(() => loadForecastChart(), 500);
 </script>

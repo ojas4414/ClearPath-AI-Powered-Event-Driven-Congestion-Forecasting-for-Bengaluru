@@ -12,6 +12,7 @@ import os
 import json
 import asyncio
 import datetime as dt
+from contextlib import asynccontextmanager
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,9 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import recommender as R
+import events as EV
+import learning as LRN
+import db as DB
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROCESSED_CSV = os.path.join(BASE_DIR, "processed_events.csv")
@@ -28,7 +32,65 @@ HOURLY_CSV = os.path.join(BASE_DIR, "hourly_corridor_counts.csv")
 MODEL_METRICS_PATH = os.path.join(BASE_DIR, "model_metrics.json")
 INDEX_HTML = os.path.join(BASE_DIR, "index.html")
 
-app = FastAPI(title="ClearPath", description="Event-Driven Congestion Forecasting", version="1.0")
+
+# --------------------------------------------------------------------------------------
+# Live-alert hub — one queue per connected dashboard.
+# --------------------------------------------------------------------------------------
+class AlertHub:
+    """
+    WHAT: Fan-out broadcaster. Each connected WebSocket gets its OWN asyncio.Queue; the only
+    consumer of a queue is that socket's handler, so there is never a concurrent send to one
+    socket (which would crash). Rotation alerts AND live-reported incidents both fan out here.
+    WHY: A reported incident must appear on every open dashboard instantly — that's the whole
+    point of the live path. A shared hub makes "report once, everyone sees it" trivial.
+    """
+    def __init__(self):
+        self._queues: set[asyncio.Queue] = set()
+
+    def connect(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue()
+        self._queues.add(q)
+        return q
+
+    def disconnect(self, q: asyncio.Queue):
+        self._queues.discard(q)
+
+    async def broadcast(self, message: dict):
+        for q in list(self._queues):
+            q.put_nowait(message)
+
+    @property
+    def clients(self) -> int:
+        return len(self._queues)
+
+
+hub = AlertHub()
+
+
+async def _rotation_loop():
+    """Background task: every 30s broadcast the next corridor in the demo rotation to all clients."""
+    counter = 0
+    while True:
+        try:
+            await hub.broadcast({**next_alert(counter), "kind": "rotation"})
+        except Exception as e:  # never let the loop die on a transient error
+            print(f"[ws] rotation error: {e}")
+        counter += 1
+        await asyncio.sleep(30)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: create operational tables + launch the rotation broadcaster. Shutdown: cancel it."""
+    DB.init_db()
+    print(f"[startup] operational DB ready (backend={DB.backend()})")
+    task = asyncio.create_task(_rotation_loop())
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="ClearPath", description="Event-Driven Congestion Forecasting",
+              version="1.1", lifespan=lifespan)
 
 # CORS open for the demo so index.html can call the API from file:// or any localhost port.
 app.add_middleware(
@@ -68,6 +130,45 @@ class PredictRequest(BaseModel):
     day_of_week: int
     is_weekend: bool = False
     requires_road_closure: bool = False
+
+
+class PlanEventRequest(BaseModel):
+    """
+    WHAT: Validated body for POST /plan-event — a specific planned event to forecast.
+    WHY: This is the event-driven core: a venue (lat/lon), date, time, expected crowd, and type.
+    """
+    venue_lat: float
+    venue_lon: float
+    venue_name: str = "Custom location"
+    date: str            # ISO date e.g. "2026-06-27"
+    hour: int
+    attendance: int
+    event_type: str      # rally | festival | sports | concert | vip | construction ...
+
+
+class FeedbackRequest(BaseModel):
+    """
+    WHAT: Validated body for POST /event-feedback — one real post-event outcome.
+    WHY: Closes the learning loop. Either send the model's predicted_min, or just the actual
+    plus the congestion intensity and let the model reconstruct its own prediction.
+    """
+    actual_min: float
+    predicted_min: float | None = None
+    intensity: float | None = None
+
+
+class LiveIncidentRequest(BaseModel):
+    """
+    WHAT: Validated body for POST /event — a real incident reported into the live system NOW.
+    WHY: This is the live ingestion path. A control room (or a judge) reports something
+    happening; ClearPath scores it, stores it, and pushes it to every open dashboard instantly.
+    """
+    corridor: str
+    event_cause: str
+    hour: int | None = None       # defaults to the real current hour
+    requires_road_closure: bool = False
+    lat: float | None = None
+    lon: float | None = None
 
 
 # --------------------------------------------------------------------------------------
@@ -125,7 +226,8 @@ ALL_CAUSES = [
 @app.get("/health")
 def health():
     """WHAT: Liveness probe. WHY: lets the dashboard / orchestrator confirm the service is up."""
-    return {"status": "alive", "service": "clearpath"}
+    return {"status": "alive", "service": "clearpath",
+            "db_backend": DB.backend(), "live_clients": hub.clients}
 
 
 @app.get("/")
@@ -147,6 +249,97 @@ def predict(req: PredictRequest):
         req.corridor, req.event_cause, req.hour, req.day_of_week,
         is_weekend=req.is_weekend, requires_road_closure=req.requires_road_closure,
     )
+
+
+@app.get("/venues")
+def venues():
+    """
+    WHAT: Preset Bengaluru event venues + selectable event types for the Plan-an-Event panel.
+    WHY: One-click scenarios (cricket match, rally, festival) so a judge can drive the demo.
+    """
+    print("[api] /venues")
+    return EV.venues()
+
+
+@app.post("/plan-event")
+def plan_event(req: PlanEventRequest):
+    """
+    WHAT: Forecast a specific planned event's traffic impact — affected corridors, crowd-sized
+    manpower, barricades and diversions — the direct answer to the event-driven brief.
+    WHY: This is the headline interactive feature: describe an event, get a deployment plan and
+    a map that lights up the corridors it will hit.
+    """
+    print(f"[api] /plan-event {req.event_type} @ {req.venue_name} "
+          f"({req.attendance} ppl) {req.date} {req.hour}:00")
+    return EV.plan_event(
+        req.venue_lat, req.venue_lon, req.date, req.hour, req.attendance,
+        req.event_type, venue_name=req.venue_name,
+    )
+
+
+@app.post("/event")
+async def report_event(req: LiveIncidentRequest):
+    """
+    WHAT: LIVE INGESTION — report an incident happening right now. ClearPath scores it, persists
+    it to the operational DB, and broadcasts it to every connected dashboard in real time.
+    WHY: This is what makes ClearPath an operational system, not a static analysis: a control room
+    reports "rally just started on MG Road" and the whole room sees the response light up instantly.
+    """
+    now = dt.datetime.now()
+    hour = req.hour if req.hour is not None else now.hour
+    dow = now.weekday()
+    print(f"[api] /event LIVE corridor={req.corridor} cause={req.event_cause} hour={hour}")
+    rec = R.recommend(req.corridor, req.event_cause, hour, dow,
+                      is_weekend=dow >= 5, requires_road_closure=req.requires_road_closure)
+    incident = {
+        "corridor": req.corridor, "event_cause": req.event_cause, "hour": hour,
+        "severity": rec["severity"], "impact_score": rec["impact_score"],
+        "officers": rec["officers_recommended"], "lat": req.lat, "lon": req.lon,
+        "reason": rec["reason"],
+    }
+    DB.insert_incident(incident)
+    # Fan out to every open dashboard immediately (flagged kind=live so the UI highlights it).
+    await hub.broadcast({
+        "kind": "live", "corridor": req.corridor, "severity": rec["severity"],
+        "impact_score": rec["impact_score"], "officers": rec["officers_recommended"],
+        "event_cause": req.event_cause, "timestamp": now.isoformat(),
+    })
+    return {"status": "ingested", "broadcast_to": hub.clients, "recommendation": rec}
+
+
+@app.get("/incidents")
+def incidents(limit: int = 20):
+    """WHAT: Recent live-reported incidents from the operational DB. WHY: powers the live log/map."""
+    print("[api] /incidents")
+    return {"backend": DB.backend(), "incidents": DB.recent_incidents(limit)}
+
+
+@app.get("/learning-status")
+def learning_status():
+    """
+    WHAT: Post-event learning loop state — the raw-vs-calibrated MAE curve, headline improvement,
+    current learned bias, and recent feedback log.
+    WHY: Demonstrates the system improves from outcomes (the brief's 'no post-event learning'
+    gap), backed by a chronological backtest over real Astram resolution times.
+    """
+    print("[api] /learning-status")
+    return LRN.status()
+
+
+@app.post("/event-feedback")
+def event_feedback(req: FeedbackRequest):
+    """
+    WHAT: Log one real post-event outcome and let the model calibrate itself on it.
+    WHY: The live half of the learning loop — a control room reports how long an event actually
+    took to clear, and the next prediction gets a little less wrong.
+    """
+    print(f"[api] /event-feedback actual={req.actual_min} predicted={req.predicted_min}")
+    status = LRN.record_outcome(req.predicted_min, req.actual_min, intensity=req.intensity)
+    # Persist the outcome to the operational DB as well (the live, append-only feedback log).
+    last = status["feedback_log"][-1] if status.get("feedback_log") else None
+    if last:
+        DB.insert_feedback(last["predicted_min"], last["actual_min"], last["residual_min"])
+    return status
 
 
 @app.get("/hotspots")
@@ -305,52 +498,10 @@ def optimize(hour: int = 18, day_of_week: int = 1, total_officers: int = 30):
             "total_officers": total_officers, "deployment": rows}
 
 
-@app.get("/simulate")
-def simulate(hour: int, day_of_week: int):
-    """
-    WHAT: For each corridor in TOP_CORRIDORS, sweep every cause in ALL_CAUSES at the given
-    hour/day and keep the cause that produces the HIGHEST impact score for that corridor.
-    Return corridors ranked by that worst-case score.
-    WHY: A single fixed baseline cause (e.g. vehicle_breakdown) just re-runs /predict in a loop
-    and answers "how bad is a generic breakdown on each road" — not genuinely different from
-    the recommender. Sweeping all causes answers a different question: "what's the worst this
-    corridor could realistically face at this time, regardless of what actually happens" — a
-    true cause-agnostic risk ranking, which is what a what-if simulator should provide.
-    """
-    print(f"[api] /simulate hour={hour} day_of_week={day_of_week}")
-    is_weekend = day_of_week >= 5
-    rows = []
-    for corridor in TOP_CORRIDORS:
-        best = None
-        for cause in ALL_CAUSES:
-            rec = R.recommend(
-                corridor, cause, hour, day_of_week,
-                is_weekend=is_weekend, requires_road_closure=False,
-            )
-            if best is None or rec["impact_score"] > best["impact_score"]:
-                best = {**rec, "cause": cause}
-        rows.append({
-            "corridor": corridor,
-            "worst_impact_score": best["impact_score"],
-            "worst_cause": best["cause"],
-            "severity": best["severity"],
-            "officers": best["officers_recommended"],
-        })
-    rows.sort(key=lambda r: r["worst_impact_score"], reverse=True)
-    # Assign severity by rank within this set (relative ranking, not absolute threshold).
-    # All major corridors score above 75 when swept with public_event 1.4x, making absolute
-    # thresholds uninformative. Rank-based tiers show genuine spread.
-    for i, row in enumerate(rows):
-        if i < 2:
-            row["sim_severity"] = "Critical"
-        elif i < 6:
-            row["sim_severity"] = "High"
-        else:
-            row["sim_severity"] = "Normal"
-    return {
-        "scenario_label": "Worst-case risk ranking — top 2 corridors Critical, next 4 High, remainder Normal",
-        "results": rows,
-    }
+# NOTE: the former /simulate endpoint was removed — it produced the same worst-case corridor
+# ranking that /optimize already computes (and /optimize adds the officer allocation on top),
+# so it was redundant. The dashboard's "Worst-Case Deployment Optimizer" is the single home for
+# that ranking now.
 
 
 @app.get("/risk-grid")
@@ -430,22 +581,25 @@ def next_alert(counter):
 @app.websocket("/ws/alerts")
 async def ws_alerts(ws: WebSocket):
     """
-    WHAT: Push one alert every 30 seconds, cycling deterministically through TOP_CORRIDORS.
-    WHY: A control room shouldn't have to poll. Rotating through a fixed, known list of busy
-    corridors (rather than random sampling) makes a live demo predictable and repeatable while
-    still showing real variation, since each corridor's historical pattern differs.
+    WHAT: Stream alerts to one dashboard. Two sources fan in through this socket's queue:
+    the 30s demo rotation (kind=rotation) AND live-reported incidents (kind=live, pushed the
+    instant someone hits POST /event). The socket is the only consumer of its queue, so sends
+    never collide.
+    WHY: A control room shouldn't poll — and a reported incident must surface everywhere at once.
     """
     await ws.accept()
-    print("[ws] client connected")
-    counter = 0
+    q = hub.connect()
+    print(f"[ws] client connected ({hub.clients} live)")
     try:
+        # Send one rotation alert immediately so a fresh dashboard isn't blank for up to 30s.
+        await ws.send_json({**next_alert(0), "kind": "rotation"})
         while True:
-            alert = next_alert(counter)
-            await ws.send_json(alert)
-            counter += 1
-            await asyncio.sleep(30)
+            msg = await q.get()
+            await ws.send_json(msg)
     except WebSocketDisconnect:
         print("[ws] client disconnected")
+    finally:
+        hub.disconnect(q)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,34 @@
+# ClearPath — production-style stack: the FastAPI app + a real Postgres database for the
+# operational data (live incidents + post-event feedback). One command brings it all up:
+#     docker compose up --build
+# then open http://localhost:8000
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: clearpath
+      POSTGRES_PASSWORD: clearpath
+      POSTGRES_DB: clearpath
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clearpath"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    # Host port defaults to 8000; override if it's taken, e.g.  HOST_PORT=8090 docker compose up
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    environment:
+      # Presence of DATABASE_URL flips db.py from the SQLite fallback to real Postgres.
+      DATABASE_URL: postgresql://clearpath:clearpath@db:5432/clearpath
+      PORT: "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

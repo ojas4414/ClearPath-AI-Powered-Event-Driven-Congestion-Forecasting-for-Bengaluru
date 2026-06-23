@@ -40,6 +40,7 @@ LSTM_DIR = os.path.join(BASE_DIR, "lstm_models")
 HOURLY_CSV = os.path.join(BASE_DIR, "hourly_corridor_counts.csv")
 PROCESSED_CSV = os.path.join(BASE_DIR, "processed_events.csv")
 METRICS_PATH = os.path.join(BASE_DIR, "model_metrics.json")
+ROUTING_PATH = os.path.join(BASE_DIR, "corridor_routing.json")
 
 FEATURES = [
     "hour", "day_of_week", "month", "is_weekend",
@@ -238,6 +239,7 @@ def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
     all_lstm_auc, all_pers_auc = [], []
     top_lstm_auc,  top_pers_auc  = [], []
     per_corridor_auc = {}  # corridor -> {lstm, persistence, delta_pp} (top-8 operational)
+    routing = {}           # corridor -> {use_lstm, lstm_auc, persistence_auc, delta_pp} (ALL corridors)
 
     for corridor, g in hourly.groupby("corridor"):
         g = g.sort_values("hour_bucket")
@@ -297,6 +299,10 @@ def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
         val_df = g.iloc[split:].copy()
         val_df["hod"] = val_df["hour_bucket"].dt.hour
 
+        # Honest routing decision: does THIS corridor's LSTM actually beat the persistence
+        # baseline on held-out data? If not, the serve path will fall back to climatology.
+        # Default False so corridors with no usable validation are routed to the safe baseline.
+        use_lstm = False
         probs_lst, preds_bin, targets_bin = [], [], []
         if len(val_series) > 0:
             for hod_val, actual_busy in zip(val_df["hod"].values, busy_val):
@@ -329,6 +335,15 @@ def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
             lstm_auc = float(roc_auc_score(targets_bin, probs_lst)) if has_both_classes else 0.5
             pers_auc = float(roc_auc_score(targets_bin, pers_bin))  if has_both_classes else 0.5
 
+            # Route to the LSTM only when it strictly beats persistence on held-out AUROC.
+            use_lstm = bool(has_both_classes and lstm_auc > pers_auc)
+            routing[corridor] = {
+                "use_lstm":        use_lstm,
+                "lstm_auc":        round(lstm_auc, 4),
+                "persistence_auc": round(pers_auc, 4),
+                "delta_pp":        round(100.0 * (lstm_auc - pers_auc), 1),
+            }
+
             all_lstm_acc.append(lstm_acc)
             all_pers_acc.append(pers_acc)
             all_lstm_f1.append(lstm_f1)
@@ -359,6 +374,7 @@ def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
             "busy_threshold":   float(threshold),
             "pred_threshold":   0.5,
             "hod_busy_profile": hod_busy.tolist(),
+            "use_lstm":         use_lstm,  # honest routing flag baked into the artifact
         }, path)
         trained += 1
         final_losses.append(float(loss.item()))
@@ -373,7 +389,14 @@ def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
     top8_imp_pp     = round(100.0 * (top8_lstm_auc - top8_pers_auc), 1)
     avg_lstm_acc    = round(float(np.mean(all_lstm_acc)), 4) if all_lstm_acc else 0.0
 
-    print(f"\n[lstm] trained={trained}  skipped={skipped} (insufficient history)")
+    # Persist the honest routing table for the serve path (recommender.forecast_load).
+    n_lstm = sum(1 for r in routing.values() if r["use_lstm"])
+    with open(ROUTING_PATH, "w") as f:
+        json.dump(routing, f, indent=2)
+    print(f"\n[lstm] routing: {n_lstm}/{len(routing)} corridors use the LSTM; "
+          f"the rest fall back to the climatology baseline (saved -> {ROUTING_PATH})")
+
+    print(f"[lstm] trained={trained}  skipped={skipped} (insufficient history)")
     print(f"[lstm] AUROC all corridors:  LSTM={avg_lstm_auc:.4f}  persistence={avg_pers_auc:.4f}")
     print(f"[lstm] AUROC top-8 corridors: LSTM={top8_lstm_auc:.4f}  persistence={top8_pers_auc:.4f}  ({top8_imp_pp:+.1f} pp)")
     # Best-performing corridors first — these are the headline slide numbers.
@@ -390,6 +413,9 @@ def train_lstm(min_hours=60, epochs=40, val_pct=0.20):
         "lstm_improvement_auc_pp_top8": top8_imp_pp,
         "lstm_val_accuracy":           avg_lstm_acc,
         "lstm_per_corridor_auc":       per_corridor_auc,
+        "lstm_corridors_using_lstm":   n_lstm,
+        "lstm_corridors_total":        len(routing),
+        "lstm_routing":                routing,
     }
 
 
@@ -412,6 +438,7 @@ def load_lstm(corridor):
         "seq_len":        ckpt["seq_len"],
         "is_binary":      ckpt.get("is_binary", False),
         "pred_threshold": ckpt.get("pred_threshold", 0.5),
+        "use_lstm":       ckpt.get("use_lstm", None),  # honest routing flag (None if pre-routing artifact)
     }
     if "hod_busy_profile" in ckpt:
         bundle["hod_busy_profile"] = np.array(ckpt["hod_busy_profile"], dtype=np.float32)

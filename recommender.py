@@ -25,9 +25,19 @@ XGB_PATH = os.path.join(BASE_DIR, "xgb_model.pkl")
 ENCODERS_PATH = os.path.join(BASE_DIR, "encoders.pkl")
 HOURLY_CSV = os.path.join(BASE_DIR, "hourly_corridor_counts.csv")
 RESOLUTION_STATS_PATH = os.path.join(BASE_DIR, "resolution_stats.json")
+ROUTING_PATH = os.path.join(BASE_DIR, "corridor_routing.json")
 
 with open(RESOLUTION_STATS_PATH) as _f:
     RESOLUTION_STATS = json.load(_f)
+
+# Honest per-corridor routing: which corridors' LSTM actually beat the persistence baseline
+# on held-out data. Corridors that didn't are served by the climatology fallback instead of
+# a forecaster we proved is worse than doing nothing. Loaded once; tolerant if file is absent.
+try:
+    with open(ROUTING_PATH) as _f:
+        CORRIDOR_ROUTING = json.load(_f)
+except (FileNotFoundError, json.JSONDecodeError):
+    CORRIDOR_ROUTING = {}
 
 # ---------------------------------------------------------------------------------------
 # Data-derived response-time model (replaces the old hand-picked severity multipliers).
@@ -235,6 +245,16 @@ def forecast_load(corridor, hour=None):
         hod_busy = bundle.get("hod_busy_profile")
         if hod_busy is None or hour is None:
             return 0.5, True
+        # HONEST ROUTING: only trust the LSTM on corridors where it beat persistence on
+        # held-out AUROC. Everywhere else, serve the climatological busy-rate for this
+        # hour-of-day (the persistence baseline) rather than a forecaster proven worse.
+        route = CORRIDOR_ROUTING.get(corridor, {})
+        # Bundle flag wins if present (baked at train time); else fall back to routing file.
+        use_lstm = bundle.get("use_lstm")
+        if use_lstm is None:
+            use_lstm = route.get("use_lstm", False)
+        if not use_lstm:
+            return float(np.clip(hod_busy[hour % 24], 0.0, 1.0)), True
         hours_seq = [(hour - seq_len + i) % 24 for i in range(seq_len)]
         seq = hod_busy[hours_seq]
         x = torch.from_numpy(seq.reshape(1, seq_len, 1).astype(np.float32))

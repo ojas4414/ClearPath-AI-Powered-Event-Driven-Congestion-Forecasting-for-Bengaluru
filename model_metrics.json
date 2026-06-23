@@ -85,5 +85,147 @@
       "persistence_auc": 0.5275,
       "delta_pp": 15.1
     }
+  },
+  "lstm_corridors_using_lstm": 11,
+  "lstm_corridors_total": 23,
+  "lstm_routing": {
+    "Airport New South Road": {
+      "use_lstm": true,
+      "lstm_auc": 0.6037,
+      "persistence_auc": 0.4957,
+      "delta_pp": 10.8
+    },
+    "Bannerghata Road": {
+      "use_lstm": true,
+      "lstm_auc": 0.659,
+      "persistence_auc": 0.5874,
+      "delta_pp": 7.2
+    },
+    "Bellary Road 1": {
+      "use_lstm": true,
+      "lstm_auc": 0.6786,
+      "persistence_auc": 0.5166,
+      "delta_pp": 16.2
+    },
+    "Bellary Road 2": {
+      "use_lstm": true,
+      "lstm_auc": 0.6573,
+      "persistence_auc": 0.5448,
+      "delta_pp": 11.2
+    },
+    "CBD 1": {
+      "use_lstm": false,
+      "lstm_auc": 0.3226,
+      "persistence_auc": 0.4964,
+      "delta_pp": -17.4
+    },
+    "CBD 2": {
+      "use_lstm": true,
+      "lstm_auc": 0.55,
+      "persistence_auc": 0.5272,
+      "delta_pp": 2.3
+    },
+    "Hennur Main Road": {
+      "use_lstm": false,
+      "lstm_auc": 0.3102,
+      "persistence_auc": 0.5158,
+      "delta_pp": -20.6
+    },
+    "Hosur Road": {
+      "use_lstm": false,
+      "lstm_auc": 0.4198,
+      "persistence_auc": 0.5683,
+      "delta_pp": -14.8
+    },
+    "IRR(Thanisandra road)": {
+      "use_lstm": false,
+      "lstm_auc": 0.2878,
+      "persistence_auc": 0.5019,
+      "delta_pp": -21.4
+    },
+    "Magadi Road": {
+      "use_lstm": false,
+      "lstm_auc": 0.5203,
+      "persistence_auc": 0.5328,
+      "delta_pp": -1.2
+    },
+    "Mysore Road": {
+      "use_lstm": true,
+      "lstm_auc": 0.741,
+      "persistence_auc": 0.5511,
+      "delta_pp": 19.0
+    },
+    "Non-corridor": {
+      "use_lstm": true,
+      "lstm_auc": 0.7835,
+      "persistence_auc": 0.6888,
+      "delta_pp": 9.5
+    },
+    "ORR East 1": {
+      "use_lstm": true,
+      "lstm_auc": 0.5916,
+      "persistence_auc": 0.5535,
+      "delta_pp": 3.8
+    },
+    "ORR East 2": {
+      "use_lstm": false,
+      "lstm_auc": 0.2875,
+      "persistence_auc": 0.5343,
+      "delta_pp": -24.7
+    },
+    "ORR North 1": {
+      "use_lstm": false,
+      "lstm_auc": 0.4146,
+      "persistence_auc": 0.541,
+      "delta_pp": -12.6
+    },
+    "ORR North 2": {
+      "use_lstm": false,
+      "lstm_auc": 0.3203,
+      "persistence_auc": 0.5165,
+      "delta_pp": -19.6
+    },
+    "ORR West 1": {
+      "use_lstm": true,
+      "lstm_auc": 0.6668,
+      "persistence_auc": 0.5021,
+      "delta_pp": 16.5
+    },
+    "Old Airport Road": {
+      "use_lstm": false,
+      "lstm_auc": 0.4801,
+      "persistence_auc": 0.4921,
+      "delta_pp": -1.2
+    },
+    "Old Madras Road": {
+      "use_lstm": false,
+      "lstm_auc": 0.5308,
+      "persistence_auc": 0.5385,
+      "delta_pp": -0.8
+    },
+    "Tumkur Road": {
+      "use_lstm": true,
+      "lstm_auc": 0.6789,
+      "persistence_auc": 0.5275,
+      "delta_pp": 15.1
+    },
+    "Unknown": {
+      "use_lstm": false,
+      "lstm_auc": 0.2923,
+      "persistence_auc": 0.4991,
+      "delta_pp": -20.7
+    },
+    "Varthur Road": {
+      "use_lstm": true,
+      "lstm_auc": 0.6357,
+      "persistence_auc": 0.568,
+      "delta_pp": 6.8
+    },
+    "West of Chord Road": {
+      "use_lstm": false,
+      "lstm_auc": 0.3178,
+      "persistence_auc": 0.5124,
+      "delta_pp": -19.5
+    }
   }
 }

@@ -1,8 +1,14 @@
 __pycache__/
 *.pyc
 *.pyo
+*.log
 server.log
 *.mp4
 *.mov
 *.avi
 Astram event data_anonymized*
+
+# local runtime / operational state (regenerated at run time)
+clearpath.db
+compose_up.log
+docker_build.log
